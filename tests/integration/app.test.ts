@@ -13,7 +13,6 @@ import { setMenuSource } from '../../src/features/general/menu.js'
 import {
   buildIncomingMessageEvent,
   OWNER_PN_JID,
-  PEER_PN_JID,
   textMessage,
 } from '../fixtures/messages.js'
 
@@ -92,7 +91,7 @@ class FakeStore {
   }
 }
 
-function textEvent(body: string, remoteJid: string = PEER_PN_JID): WaIncomingMessageEvent {
+function textEvent(body: string, remoteJid: string = OWNER_PN_JID): WaIncomingMessageEvent {
   return buildIncomingMessageEvent({ remoteJid, message: textMessage(body) })
 }
 
@@ -129,6 +128,7 @@ describe('createApp', () => {
       store,
       client,
       registry,
+      allowlist: { has: () => true, list: () => [], add: () => Promise.resolve(), remove: () => Promise.resolve() },
     })
   }
 

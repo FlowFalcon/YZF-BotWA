@@ -13,6 +13,7 @@ import type { CommandErrorReport } from '../../src/commands/middleware/error-bou
 import {
   buildIncomingMessageEvent,
   groupPnParticipantEvent,
+  GROUP_JID,
   PEER_PN_JID,
   privatePnEvent,
   textMessage,
@@ -66,6 +67,12 @@ function harness(
       flood: { check: () => ({ allowed: true }) },
       cooldown: { check: () => ({ allowed: true }) },
       reporter: { command: () => undefined, error: () => undefined },
+      // Existing router tests predate private mode; an allow-all allowlist keeps
+      // them focused on pipeline behavior. Access rules live in router-access.test.ts.
+      access: { has: () => true },
+      // Private mode denies non-owner private chats, so the pipeline tests below
+      // speak as the owner. Access rules themselves live in router-access.test.ts.
+      ownerNumber: '6289876543210',
       ...overrides,
     },
   }
@@ -164,6 +171,9 @@ describe('createMessageRouter', () => {
         },
       ],
       {
+        // Runs in an allowlisted group: private mode would silently drop a
+        // non-owner private chat before the permission check is ever reached.
+        ownerNumber: '6280000000000',
         cooldown: {
           check: (senderJid) => {
             cooldownCalls.push(senderJid)
@@ -174,11 +184,11 @@ describe('createMessageRouter', () => {
     )
     const route = createMessageRouter(options)
 
-    await route(privatePnEvent(textMessage('.shutdown')))
+    await route(groupPnParticipantEvent(textMessage('.shutdown')))
 
     expect(ran).toEqual([])
     expect(cooldownCalls).toEqual([])
-    expect(sent).toEqual([{ to: PEER_PN_JID, content: OWNER_ONLY_REPLY }])
+    expect(sent).toEqual([{ to: GROUP_JID, content: OWNER_ONLY_REPLY }])
   })
 
   it('runs an owner-only command for the configured owner', async () => {
@@ -326,18 +336,18 @@ describe('createMessageRouter', () => {
           run: recording(state, 'shutdown'),
         },
       ],
-      { reporter },
+      { reporter, ownerNumber: '6280000000000' },
     )
     const limited = harness((state) => [pingWithAlias(state)], {
       reporter,
       flood: { check: () => ({ allowed: false, retryAfterMs: 100 }) },
     })
 
-    await createMessageRouter(denied.options)(privatePnEvent(textMessage('.shutdown')))
+    await createMessageRouter(denied.options)(groupPnParticipantEvent(textMessage('.shutdown')))
     await createMessageRouter(limited.options)(groupPnParticipantEvent(textMessage('.ping')))
 
     expect(reports.map((report) => [report.command, report.outcome, report.chatKind])).toEqual([
-      ['shutdown', 'denied', 'private'],
+      ['shutdown', 'denied', 'group'],
       ['ping', 'rate_limited', 'group'],
     ])
   })

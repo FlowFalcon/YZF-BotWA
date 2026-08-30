@@ -1,6 +1,7 @@
 import path from 'node:path'
 
 import { createApp } from './app.js'
+import { createGroupAllowlist } from './access/group-allowlist.js'
 import { createClient } from './client/create-client.js'
 import { createProtocolStore } from './client/store.js'
 import { loadCommands } from './commands/loader.js'
@@ -18,8 +19,11 @@ async function main(): Promise<void> {
   const store = createProtocolStore({ path: config.storePath, logger: zapoLogger })
   const client = createClient(config, store, zapoLogger)
   const registry = await loadCommands(FEATURES_DIR)
+  const allowlist = await createGroupAllowlist(
+    path.join(path.dirname(config.storePath), 'allowed-groups.json'),
+  )
 
-  const app = createApp({ config, logger, store, client, registry })
+  const app = createApp({ config, logger, store, client, registry, allowlist })
 
   let shuttingDown = false
   const shutdown = (signal: string): void => {

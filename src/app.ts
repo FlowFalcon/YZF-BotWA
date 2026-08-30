@@ -14,6 +14,8 @@ import type { CommandRegistry } from './commands/registry.js'
 import { createCooldownGate } from './commands/middleware/cooldown.js'
 import { createFloodGate } from './commands/middleware/flood.js'
 import { setMenuSource } from './features/general/menu.js'
+import { setAccessAllowlist } from './features/general/access.js'
+import type { GroupAllowlist } from './access/group-allowlist.js'
 import { createMessageRouter } from './messages/router.js'
 import type { MessageSender } from './messages/context.js'
 import type { RouterReporter } from './messages/router.js'
@@ -69,6 +71,7 @@ export interface AppDependencies {
   readonly store: AppStore
   readonly client: AppClient
   readonly registry: CommandRegistry
+  readonly allowlist: GroupAllowlist
 }
 
 export interface App {
@@ -81,7 +84,7 @@ export interface App {
  * connect at import time — `index.ts` owns those so this stays testable.
  */
 export function createApp(deps: AppDependencies): App {
-  const { config, logger, store, client, registry } = deps
+  const { config, logger, store, client, registry, allowlist } = deps
 
   const reporter: RouterReporter = {
     command: (report) => {
@@ -101,6 +104,7 @@ export function createApp(deps: AppDependencies): App {
     flood: createFloodGate({ clock: systemClock, limit: FLOOD_LIMIT, windowMs: FLOOD_WINDOW_MS }),
     cooldown: createCooldownGate({ clock: systemClock, defaultCooldownMs: DEFAULT_COOLDOWN_MS }),
     reporter,
+    access: allowlist,
     ...(config.ownerNumber === undefined ? {} : { ownerNumber: config.ownerNumber }),
   })
 
@@ -145,6 +149,7 @@ export function createApp(deps: AppDependencies): App {
       // the loader only reads `default`; this is the same module instance the
       // loader imported, so the injection is visible to the loaded command.
       setMenuSource(registry)
+      setAccessAllowlist(allowlist)
       auth.attach()
       client.on('message', onMessage)
       connection.start()
@@ -160,6 +165,7 @@ export function createApp(deps: AppDependencies): App {
       client.off('message', onMessage)
       auth.detach()
       setMenuSource(undefined)
+      setAccessAllowlist(undefined)
 
       // disconnect(), never logout(): logout unlinks the device and would force
       // the user to pair again.

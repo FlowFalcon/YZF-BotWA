@@ -12,6 +12,8 @@ import type { Random } from '../shared/random.js'
 import { createCommandContext } from './context.js'
 import type { MessageSender } from './context.js'
 import { extractMessageText } from './extract-text.js'
+import { evaluateAccess } from '../access/access-policy.js'
+import type { GroupAllowlistView } from '../access/access-policy.js'
 
 export type ChatKind = 'group' | 'private'
 export type RouteOutcome = 'ok' | 'error' | 'denied' | 'rate_limited'
@@ -51,6 +53,11 @@ export interface MessageRouterOptions {
   readonly cooldown: CooldownChecker
   readonly reporter: RouterReporter
   readonly ownerNumber?: string
+  /**
+   * Private mode: without an allowlist the bot would answer every group the
+   * account belongs to. Required so enabling private mode cannot be forgotten.
+   */
+  readonly access: GroupAllowlistView
 }
 
 export type MessageRouter = (event: WaIncomingMessageEvent) => Promise<void>
@@ -99,6 +106,20 @@ export function createMessageRouter(options: MessageRouterOptions): MessageRoute
         durationMs: options.clock.now() - startedAtMs,
         outcome,
       })
+    }
+
+    // Private mode gate: silent by design. An unauthorised chat gets no reply,
+    // because an error message would confirm the bot is present in the group.
+    const access = evaluateAccess({
+      chatJid: context.chatJid,
+      isGroup: context.isGroup,
+      isOwner: context.isOwner,
+      commandName: command.name,
+      allowlist: options.access,
+    })
+    if (!access.allowed) {
+      report('denied')
+      return
     }
 
     // Permission sebelum flood/cooldown: penolakan tidak boleh mengonsumsi kuota apa pun.
