@@ -2,6 +2,13 @@
 
 Keputusan di sini bersifat aktif sampai diganti oleh entri baru. Perubahan keputusan harus memperbarui PRD, arsitektur, plan, dan test yang terdampak.
 
+## D-015 — Mode private: owner-only private chat + allowlist grup
+
+**Status:** Accepted
+**Keputusan:** Bot hanya membalas owner di private chat, dan di grup hanya bila grup ada di allowlist. Grup non-allowlist bungkam total, termasuk untuk owner. Satu-satunya pengecualian: owner boleh menjalankan `.access` di grup non-allowlist supaya grup itu bisa didaftarkan dari dalam.
+**Alasan:** Akun yang dipakai adalah second account milik user yang tergabung di beberapa grup komunitas. Default fail-open akan membuat bot membalas di semua grup tersebut — mengganggu anggota dan menaikkan risiko ban.
+**Konsekuensi:** Gate berada di `src/access/access-policy.ts`, dievaluasi di router sebelum permission/flood/cooldown. Penolakan bersifat senyap (tanpa balasan) agar tidak mengonfirmasi kehadiran bot. Allowlist persist di `allowed-groups.json` di direktori store, bukan env, karena diubah saat runtime lewat `.access add`/`.access del` oleh owner. `MessageRouterOptions.access` wajib, jadi mode private tidak bisa lupa dipasang.
+
 ## D-001 — TypeScript strict
 
 **Status:** Accepted  

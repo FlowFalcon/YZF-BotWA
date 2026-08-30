@@ -2,20 +2,39 @@
 
 Base bot WhatsApp untuk fitur hiburan, dibangun dengan Node.js, TypeScript, dan `zapo-js`.
 
-> Status: Task 1–15 selesai. 27 file test, 169 test lulus, termasuk E2E terhadap `@zapo-js/fake-server`.
+> Status: Task 1–15 selesai plus mode private. 31 file test, 198 test lulus, termasuk E2E terhadap `@zapo-js/fake-server`.
 > Belum pernah dijalankan terhadap akun WhatsApp sungguhan.
 
 ## Menjalankan
 
 ```bash
 npm install
-cp .env.example .env   # isi BOT_OWNER_NUMBER
+cp .env.example .env   # BOT_OWNER_NUMBER wajib diisi
 npm run check          # typecheck + lint + test
 npm run build
 npm start              # QR muncul di terminal, scan dari WhatsApp
 ```
 
 Hentikan dengan Ctrl+C: `stop()` memanggil `disconnect()`, bukan `logout()`, sehingga device tetap tertaut.
+
+## Mode private
+
+Bot tidak merespons siapa pun kecuali:
+
+- **Private chat:** hanya nomor `BOT_OWNER_NUMBER`. Chat lain diabaikan tanpa balasan.
+- **Grup:** hanya grup yang ada di allowlist. Grup lain bungkam total, termasuk untuk owner.
+
+Mendaftarkan grup — jalankan dari dalam grup yang dimaksud, sebagai owner:
+
+```
+.access add     # izinkan grup ini
+.access del     # cabut izin grup ini
+.access list    # daftar grup yang diizinkan (bisa dari mana saja)
+```
+
+`.access` adalah satu-satunya command yang jalan di grup non-allowlist, dan hanya untuk owner — tanpa itu grup tidak akan pernah bisa didaftarkan, karena JID grup tidak terlihat dari private chat.
+
+Allowlist disimpan di `allowed-groups.json` di direktori yang sama dengan store (`.auth/` secara default), tidak masuk Git. Penolakan bersifat senyap: bot tidak mengirim pesan error, supaya keberadaannya tidak terkonfirmasi di grup komunitas.
 
 ## Dokumen acuan
 
@@ -40,6 +59,7 @@ Instruksi untuk coding agent berada di [`AGENTS.md`](AGENTS.md). `AGENT.md` dise
 - Session persisten menggunakan `@zapo-js/store-sqlite`.
 - Command modular dengan alias, permission, dan cooldown.
 - Command awal: `menu`, `ping`, `dice`, `coinflip`, `eightball`, dan `rate`.
+- Mode private: owner-only di private chat, allowlist grup dikelola `.access` (D-015).
 - Reconnect dengan exponential backoff.
 - Unit test, integration test, dan E2E memakai `@zapo-js/fake-server`.
 
