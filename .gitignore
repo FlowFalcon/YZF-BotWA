@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+
+# Session, credentials, dan artefak WhatsApp — jangan pernah di-commit.
+.auth/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.env
+.env.*
+!.env.example
+qr.png
+*.log
+tmp/
