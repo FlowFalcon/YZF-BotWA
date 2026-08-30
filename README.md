@@ -2,7 +2,20 @@
 
 Base bot WhatsApp untuk fitur hiburan, dibangun dengan Node.js, TypeScript, dan `zapo-js`.
 
-> Status: dokumentasi dan perencanaan. Implementasi belum dimulai.
+> Status: Task 1–15 selesai. 27 file test, 169 test lulus, termasuk E2E terhadap `@zapo-js/fake-server`.
+> Belum pernah dijalankan terhadap akun WhatsApp sungguhan.
+
+## Menjalankan
+
+```bash
+npm install
+cp .env.example .env   # isi BOT_OWNER_NUMBER
+npm run check          # typecheck + lint + test
+npm run build
+npm start              # QR muncul di terminal, scan dari WhatsApp
+```
+
+Hentikan dengan Ctrl+C: `stop()` memanggil `disconnect()`, bukan `logout()`, sehingga device tetap tertaut.
 
 ## Dokumen acuan
 
