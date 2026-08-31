@@ -25,6 +25,7 @@ function makeContext(receivedAtMs: number, nowMs: number): {
       return Promise.resolve()
     },
     replyContent: async () => {},
+    replyMedia: async () => {},
     react: async () => {},
   }
   return { ctx, replies }

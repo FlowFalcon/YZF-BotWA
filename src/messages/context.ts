@@ -57,6 +57,10 @@ export function createCommandContext(input: CommandContextInput): CommandContext
     replyContent: async (content) => {
       await sender.message.send(identity.replyJid, content)
     },
+    replyMedia: async (content) => {
+      await sender.message.send(identity.replyJid, content)
+    },
+    ...(event.message === null || event.message === undefined ? {} : { message: event.message }),
     react: async (emoji) => {
       // Event diteruskan verbatim sebagai target; zapo memakai `key` di dalamnya.
       await sender.message.send(identity.replyJid, { type: 'reaction', emoji, target: event })

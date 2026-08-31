@@ -1,4 +1,5 @@
 import type { RichInteractiveContent } from '../messages/rich.js'
+import type { IncomingMessageContent, MediaReply } from '../media/types.js'
 
 export type CommandCategory = 'general' | 'fun'
 export type CommandPermission = 'everyone' | 'owner'
@@ -29,7 +30,15 @@ export interface CommandContext {
   reply(content: string): Promise<void>
   /** Sends a native-flow interactive payload (tappable buttons / list). */
   replyContent(content: RichInteractiveContent): Promise<void>
+  /** Sends encoded media (sticker) back to the same chat. */
+  replyMedia(content: MediaReply): Promise<void>
   react(emoji: string): Promise<void>
+  /**
+   * The incoming message content, for commands that need the attachment rather
+   * than the text — a sticker source, for instance. Undefined for messages that
+   * carry no content payload.
+   */
+  readonly message?: IncomingMessageContent
 }
 
 export interface Command {
