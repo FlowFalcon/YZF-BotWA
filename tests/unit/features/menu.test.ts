@@ -28,6 +28,7 @@ function makeContext(prefix = '.'): Recorder {
     },
     replyContent: async () => {},
     replyMedia: async () => {},
+    replyRaw: async () => {},
     react: async () => {},
   }
   return { ctx, replies }

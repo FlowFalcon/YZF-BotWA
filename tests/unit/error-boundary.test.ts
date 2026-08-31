@@ -23,6 +23,7 @@ function buildContext(overrides: Partial<CommandContext> = {}): CommandContext {
     reply: () => Promise.resolve(),
     replyContent: () => Promise.resolve(),
     replyMedia: () => Promise.resolve(),
+    replyRaw: () => Promise.resolve(),
     react: () => Promise.resolve(),
     ...overrides,
   }

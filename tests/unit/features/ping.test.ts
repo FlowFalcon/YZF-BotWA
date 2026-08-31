@@ -26,6 +26,7 @@ function makeContext(receivedAtMs: number, nowMs: number): {
     },
     replyContent: async () => {},
     replyMedia: async () => {},
+    replyRaw: async () => {},
     react: async () => {},
   }
   return { ctx, replies }
