@@ -122,27 +122,46 @@ export function createAuthController(options: AuthControllerOptions): AuthContro
   }
 
   let latestQr: string | undefined
+  let codeRequested = false
 
-  const handleQr = (event: AuthQrEvent): void => {
-    latestQr = event.qr
-    // zapo emits auth_qr on every rotation regardless of the chosen method.
-    // Rendering it in pairing mode showed the operator a QR they never asked
-    // for and hid the link code they were waiting on.
-    if (method === 'qr') renderQr(event.qr)
-  }
-
-  // requestPairingCode needs a live connection, so it can only run from this event.
-  const handlePairingRequired = (): void => {
-    if (pairingNumber === undefined) return
+  /**
+   * The link-code request needs a live connection. In practice WhatsApp signals
+   * readiness with `auth_qr`; `auth_pairing_required` only arrives once the QR
+   * refresh budget is exhausted (`forceManual`), so waiting for it alone left
+   * the operator staring at a QR with no code.
+   */
+  const requestCode = (): void => {
+    if (pairingNumber === undefined || codeRequested) return
+    codeRequested = true
     requestPairingCode(client.auth, pairingNumber).then(
       ({ code }) => {
         renderPairingCode(code)
         onNotice?.({ kind: 'pairing-code', code })
       },
       (error: unknown) => {
+        // Allow a retry on the next signal: a failed request left no code.
+        codeRequested = false
         onError?.(error)
       },
     )
+  }
+
+  const handleQr = (event: AuthQrEvent): void => {
+    latestQr = event.qr
+    // zapo emits auth_qr on every rotation regardless of the chosen method.
+    // Rendering it in pairing mode showed the operator a QR they never asked
+    // for and hid the link code they were waiting on.
+    if (method === 'qr') {
+      renderQr(event.qr)
+      return
+    }
+    requestCode()
+  }
+
+  // forceManual means the server discarded the previous code, so a fresh one is needed.
+  const handlePairingRequired = (event: AuthPairingRequiredEvent): void => {
+    if (event.forceManual) codeRequested = false
+    requestCode()
   }
 
   const handlePaired = (event: AuthPairedEvent): void => {

@@ -257,6 +257,64 @@ describe('createAuthController', () => {
     expect(codes).toEqual(['ABCD 1234'])
   })
 
+  it('requests the pairing code on the first QR, without waiting for auth_pairing_required', async () => {
+    const client = createFakeClient()
+    const codes: string[] = []
+    const controller = createAuthController({
+      client,
+      config: { authMethod: 'pairing', pairingNumber: '6281234567890' },
+      renderQr: () => undefined,
+      renderPairingCode: (code) => codes.push(code),
+    })
+
+    controller.attach()
+    // Live observation: WhatsApp emits auth_qr but auth_pairing_required only
+    // fires once the QR refresh budget is exhausted (forceManual). Waiting for
+    // it meant the code was never requested.
+    client.emitQr('qr-one')
+    await client.settle()
+
+    expect(client.pairingRequests).toEqual(['6281234567890'])
+    expect(codes).toEqual(['ABCD 1234'])
+  })
+
+  it('requests the pairing code once across repeated QR and pairing events', async () => {
+    const client = createFakeClient()
+    const controller = createAuthController({
+      client,
+      config: { authMethod: 'pairing', pairingNumber: '6281234567890' },
+      renderQr: () => undefined,
+      renderPairingCode: () => undefined,
+    })
+
+    controller.attach()
+    client.emitQr('qr-one')
+    client.emitQr('qr-two')
+    client.emitPairingRequired(false)
+    await client.settle()
+
+    expect(client.pairingRequests).toEqual(['6281234567890'])
+  })
+
+  // forceManual means the server discarded the previous code; a fresh one is required.
+  it('requests a new code when pairing is forced manual', async () => {
+    const client = createFakeClient()
+    const controller = createAuthController({
+      client,
+      config: { authMethod: 'pairing', pairingNumber: '6281234567890' },
+      renderQr: () => undefined,
+      renderPairingCode: () => undefined,
+    })
+
+    controller.attach()
+    client.emitQr('qr-one')
+    await client.settle()
+    client.emitPairingRequired(true)
+    await client.settle()
+
+    expect(client.pairingRequests).toEqual(['6281234567890', '6281234567890'])
+  })
+
   it('attaches each listener once and detaches them all', () => {
     const client = createFakeClient()
     const rendered: string[] = []
