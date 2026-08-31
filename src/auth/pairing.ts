@@ -30,6 +30,17 @@ export function formatPairingCode(code: string): string {
   return `${compact.slice(0, 4)} ${compact.slice(4)}`
 }
 
+/** Shows the link code to the operator. Injectable so tests never write to stdout. */
+export type PairingCodeRenderer = (code: string) => void
+
+/**
+ * Writes to stdout directly, never through the logger: SECURITY.md forbids the
+ * pairing code in logs, but the operator has to read it to link the device.
+ */
+export const renderPairingCodeToTerminal: PairingCodeRenderer = (code) => {
+  process.stdout.write(`\nKode pairing: ${code}\nBuka WhatsApp > Perangkat tertaut > Tautkan dengan nomor telepon.\n\n`)
+}
+
 export async function requestPairingCode(
   requester: PairingRequester,
   rawNumber: string,

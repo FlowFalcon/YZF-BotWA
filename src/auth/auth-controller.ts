@@ -1,4 +1,10 @@
-import { normalizePairingNumber, requestPairingCode, type PairingRequester } from './pairing.js'
+import {
+  normalizePairingNumber,
+  renderPairingCodeToTerminal,
+  requestPairingCode,
+  type PairingCodeRenderer,
+  type PairingRequester,
+} from './pairing.js'
 import { renderQrToTerminal, type QrRenderer } from './qr.js'
 
 export interface AuthQrEvent {
@@ -75,6 +81,7 @@ export interface AuthControllerOptions {
   readonly config: AuthControllerConfig
   /** Defaults to terminal rendering; injected in tests to keep stdout clean. */
   readonly renderQr?: QrRenderer
+  readonly renderPairingCode?: PairingCodeRenderer
   readonly onNotice?: (notice: AuthNotice) => void
   readonly onError?: (error: unknown) => void
 }
@@ -87,7 +94,14 @@ export interface AuthController {
 }
 
 export function createAuthController(options: AuthControllerOptions): AuthController {
-  const { client, config, renderQr = renderQrToTerminal, onNotice, onError } = options
+  const {
+    client,
+    config,
+    renderQr = renderQrToTerminal,
+    renderPairingCode = renderPairingCodeToTerminal,
+    onNotice,
+    onError,
+  } = options
   // 'auto' prefers the link-code flow only when a target number is configured.
   const method: EffectiveAuthMethod =
     config.authMethod === 'pairing' ||
@@ -111,7 +125,10 @@ export function createAuthController(options: AuthControllerOptions): AuthContro
 
   const handleQr = (event: AuthQrEvent): void => {
     latestQr = event.qr
-    renderQr(event.qr)
+    // zapo emits auth_qr on every rotation regardless of the chosen method.
+    // Rendering it in pairing mode showed the operator a QR they never asked
+    // for and hid the link code they were waiting on.
+    if (method === 'qr') renderQr(event.qr)
   }
 
   // requestPairingCode needs a live connection, so it can only run from this event.
@@ -119,6 +136,7 @@ export function createAuthController(options: AuthControllerOptions): AuthContro
     if (pairingNumber === undefined) return
     requestPairingCode(client.auth, pairingNumber).then(
       ({ code }) => {
+        renderPairingCode(code)
         onNotice?.({ kind: 'pairing-code', code })
       },
       (error: unknown) => {

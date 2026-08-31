@@ -222,6 +222,41 @@ describe('createAuthController', () => {
     expect(client.pairingRequests).toEqual([])
   })
 
+  it('never renders the QR in pairing mode', () => {
+    const client = createFakeClient()
+    const rendered: string[] = []
+    const controller = createAuthController({
+      client,
+      config: { authMethod: 'pairing', pairingNumber: '6281234567890' },
+      renderQr: (qr) => rendered.push(qr),
+    })
+
+    controller.attach()
+    // zapo emits auth_qr on every rotation regardless of method; printing it in
+    // pairing mode is what made the operator scan a QR they never asked for.
+    client.emitQr('qr-one')
+
+    expect(rendered).toEqual([])
+    expect(controller.latestQr).toBe('qr-one')
+  })
+
+  it('renders the pairing code for the operator in pairing mode', async () => {
+    const client = createFakeClient()
+    const codes: string[] = []
+    const controller = createAuthController({
+      client,
+      config: { authMethod: 'pairing', pairingNumber: '6281234567890' },
+      renderQr: () => undefined,
+      renderPairingCode: (code) => codes.push(code),
+    })
+
+    controller.attach()
+    client.emitPairingRequired(false)
+    await client.settle()
+
+    expect(codes).toEqual(['ABCD 1234'])
+  })
+
   it('attaches each listener once and detaches them all', () => {
     const client = createFakeClient()
     const rendered: string[] = []
