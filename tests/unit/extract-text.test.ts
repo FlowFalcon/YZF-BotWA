@@ -25,6 +25,16 @@ describe('extractMessageText', () => {
     expect(extractMessageText(videoCaptionMessage('.tovideo'))).toBe('.tovideo')
   })
 
+  it('reads a native-flow button tap as the command it carries', () => {
+    expect(
+      extractMessageText({
+        interactiveResponseMessage: {
+          nativeFlowResponseMessage: { name: 'single_select', paramsJson: '{"id":".dice"}' },
+        },
+      }),
+    ).toBe('.dice')
+  })
+
   it('returns undefined for unsupported, empty, null, and undefined messages', () => {
     expect(extractMessageText({ protocolMessage: {} })).toBeUndefined()
     expect(extractMessageText({})).toBeUndefined()

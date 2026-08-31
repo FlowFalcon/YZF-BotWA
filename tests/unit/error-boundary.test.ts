@@ -21,6 +21,7 @@ function buildContext(overrides: Partial<CommandContext> = {}): CommandContext {
     now: () => 1_050,
     random: () => 0.5,
     reply: () => Promise.resolve(),
+    replyContent: () => Promise.resolve(),
     react: () => Promise.resolve(),
     ...overrides,
   }

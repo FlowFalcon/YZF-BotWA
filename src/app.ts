@@ -14,6 +14,7 @@ import type { CommandRegistry } from './commands/registry.js'
 import { createCooldownGate } from './commands/middleware/cooldown.js'
 import { createFloodGate } from './commands/middleware/flood.js'
 import { setMenuSource } from './features/general/menu.js'
+import { setPanelSource } from './features/general/panel.js'
 import { setAccessAllowlist } from './features/general/access.js'
 import type { GroupAllowlist } from './access/group-allowlist.js'
 import { createMessageRouter } from './messages/router.js'
@@ -149,6 +150,7 @@ export function createApp(deps: AppDependencies): App {
       // the loader only reads `default`; this is the same module instance the
       // loader imported, so the injection is visible to the loaded command.
       setMenuSource(registry)
+      setPanelSource(registry)
       setAccessAllowlist(allowlist)
       auth.attach()
       client.on('message', onMessage)
@@ -165,6 +167,7 @@ export function createApp(deps: AppDependencies): App {
       client.off('message', onMessage)
       auth.detach()
       setMenuSource(undefined)
+      setPanelSource(undefined)
       setAccessAllowlist(undefined)
 
       // disconnect(), never logout(): logout unlinks the device and would force

@@ -38,6 +38,7 @@ function context(options: {
       replies.push(typeof content === 'string' ? content : JSON.stringify(content))
       return Promise.resolve()
     },
+    replyContent: () => Promise.resolve(),
     react: () => Promise.resolve(),
   } as unknown as CommandContext
 

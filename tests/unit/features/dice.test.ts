@@ -21,6 +21,7 @@ function makeContext(randomValue: number): { ctx: CommandContext; replies: strin
       replies.push(content)
       return Promise.resolve()
     },
+    replyContent: async () => {},
     react: async () => {},
   }
   return { ctx, replies }

@@ -54,6 +54,9 @@ export function createCommandContext(input: CommandContextInput): CommandContext
       // COMMAND_SPEC §6: reply di grup dikirim ke group JID.
       await sender.message.send(identity.replyJid, content)
     },
+    replyContent: async (content) => {
+      await sender.message.send(identity.replyJid, content)
+    },
     react: async (emoji) => {
       // Event diteruskan verbatim sebagai target; zapo memakai `key` di dalamnya.
       await sender.message.send(identity.replyJid, { type: 'reaction', emoji, target: event })

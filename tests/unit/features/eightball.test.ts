@@ -25,6 +25,7 @@ function makeContext(
       replies.push(content)
       return Promise.resolve()
     },
+    replyContent: async () => {},
     react: async () => {},
   }
   return { ctx, replies }

@@ -1,3 +1,5 @@
+import type { RichInteractiveContent } from '../messages/rich.js'
+
 export type CommandCategory = 'general' | 'fun'
 export type CommandPermission = 'everyone' | 'owner'
 
@@ -25,6 +27,8 @@ export interface CommandContext {
   now(): number
   random(): number
   reply(content: string): Promise<void>
+  /** Sends a native-flow interactive payload (tappable buttons / list). */
+  replyContent(content: RichInteractiveContent): Promise<void>
   react(emoji: string): Promise<void>
 }
 
