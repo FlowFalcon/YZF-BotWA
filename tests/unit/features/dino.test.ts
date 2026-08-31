@@ -150,11 +150,11 @@ describe('dino command', () => {
     expect(h.cards).toHaveLength(1)
   })
 
-  it('stays out of groups while the html route is unproven', async () => {
+  it('also sends the html payload in a group, since only allowlisted groups get here', async () => {
     const h = harness({ html: true })
     await h.play('', { isGroup: true })
 
-    expect(h.raw).toHaveLength(0)
+    expect(h.raw).toHaveLength(1)
     expect(h.cards).toHaveLength(1)
   })
 

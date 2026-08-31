@@ -21,15 +21,17 @@ renderer HTML-nya.
 
 ### Gate
 
-`.dino` mati secara default. Tiga lapis, semuanya diuji:
+`.dino` selalu mengirim kartu tombol; payload HTML hanya bonus di atasnya dan
+mati secara default.
 
-1. `BOT_HTML_GAMES=1` — tanpa itu command hanya membalas cara menyalakannya.
-2. `permission: 'owner'`.
-3. Private chat saja; di grup menolak walau owner.
+1. `BOT_HTML_GAMES=1` — tanpa itu payload HTML tidak pernah dikirim.
+2. Hanya pada ronde baru (`score === 0`), bukan tiap tick.
+3. Grup **boleh**, karena `access-policy` sudah menyaring: hanya grup yang
+   di-allowlist owner yang sampai ke command sama sekali.
 
-Alasan lapis ketiga: payload yang tidak dirender akan tampil sebagai pesan rusak
-di grup komunitas milik akun kedua user — tepat paparan yang dihindari sejak
-D-015.
+Alasan poin 3 diubah dari private-only: gate grup di command adalah duplikasi
+dari lapisan akses yang sudah ada, dan menghalangi diagnosis — perilaku render
+bisa berbeda antara private chat dan grup, jadi kedua jalur perlu bisa diuji.
 
 ### Batas yang dipertahankan
 

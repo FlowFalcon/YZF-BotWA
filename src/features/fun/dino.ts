@@ -71,7 +71,8 @@ export function createDinoCommand(options: DinoOptions): Command {
 
       // The canvas version is a bonus on top of the card that already works,
       // never a replacement — if it fails to render the player still has a game.
-      if (options.htmlEnabled && !context.isGroup && state.score === 0 && !state.over) {
+      // Groups are allowed: only owner-allowlisted groups reach this code at all.
+      if (options.htmlEnabled && state.score === 0 && !state.over) {
         await context.replyRaw(
           htmlPrimitiveMessage({
             html: DINO_HTML,
