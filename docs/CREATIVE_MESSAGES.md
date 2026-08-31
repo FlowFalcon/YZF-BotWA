@@ -1,7 +1,7 @@
 # Creative Rich Messages — Verified Feasibility
 
-Status: **terverifikasi pada level encoding/protobuf**, belum terverifikasi pada rendering client WhatsApp.  
-Target fase: **Phase 2**, setelah MVP command pipeline selesai.
+Status: **live-tested via `@zapo-js/mcp-server` on 2026-08-31; transport succeeds, stock WhatsApp clients suppress the AIRich body from a normal account.**  
+Target fase: **ditutup untuk game UI; raw transport tetap tersedia untuk eksperimen owner.**
 
 ## 1. Ringkasan hasil pemeriksaan
 
@@ -70,17 +70,49 @@ Dua perilaku ini ditemukan dengan membaca `dist/message/encode/content.js` versi
 
 2. **Message secret persistence.** `needsSecretPersistence` bernilai true ketika `messageContextInfo.botMetadata` terisi, termasuk saat body dibungkus `botInvokeMessage`. Artinya mengirim payload bergaya bot menyebabkan Zapo menyimpan message secret. Konsekuensi storage harus dipertimbangkan sebelum command semacam ini dipakai luas.
 
-## 5. Yang belum terverifikasi
+## 5. Hasil live test
 
-- Apakah WhatsApp menerima pesan ini dari companion device biasa.
-- Apakah client Android, iOS, dan Web merender HTML primitive tersebut.
-- Apakah `verificationMetadata` palsu/placeholder diterima atau ditolak server.
-- Apakah pengiriman berulang memicu pembatasan akun.
-- Apakah bentuk `GenAIaeacdsnwHtmlPrimitive` stabil; nama typename semacam ini biasanya hasil reverse engineering dan dapat berubah kapan pun.
+Live test dilakukan melalui `@zapo-js/mcp-server@1.2.0` dengan MCP sebagai
+satu-satunya `WaClient` pada store. Payload dikirim ke PM owner dan grup
+allowlist dalam beberapa bentuk:
 
-Sampel HTML dalam pesan user juga sudah rusak akibat escaping (`\o.forEach`, regex `d+`, newline hilang). Payload harus ditulis ulang dari sumber bersih, bukan disalin dari teks yang sudah termangle.
+1. pesan kontrol `conversation`;
+2. AIRich lengkap dengan `forwardedAiBotMessageInfo.botJid`, `forwardOrigin: 4`,
+   signature acak 64 byte, certificate chain acak 684/892 byte;
+3. edit protocol type 14 seperti `baileys-mbuilder`;
+4. pesan biasa yang mengutip message ID AIRich;
+5. pesan polos `status true`.
 
-## 6. Rencana implementasi Phase 2
+Semua pengiriman selesai dalam satu attempt dengan `ack.error = null`; ACK grup
+memiliki `count = 2`, dan MCP mencatat nol warning/error. Hasil pada WhatsApp HP
+dan Web sama:
+
+- kontrol dan `status true` tampil;
+- bubble AIRich tidak tampil sama sekali;
+- pesan biasa yang mengutip AIRich tampil;
+- quoted preview mengenali nomor pengirim, tetapi area isi quoted kosong.
+
+Ini membuktikan message ID AIRich masuk ke graph reply, tetapi body-nya disaring
+saat decode/render. Server ACK bukan bukti client akan membuat bubble. Menulis
+`botJid` pada metadata dan menambahkan proof acak hanya membuat klaim data; itu
+tidak mengubah pengirim `@s.whatsapp.net` menjadi identitas `@bot` yang dapat
+diverifikasi.
+
+`mailbox_messages` dan `mailbox_threads` tetap nol row setelah tes, termasuk
+untuk pesan kontrol. Store tersebut bukan outbox, sehingga ketiadaan row tidak
+membatalkan ACK maupun hasil visual.
+
+### Implikasi
+
+`GenAIaeacdsnwHtmlPrimitive` tidak dipakai sebagai UI game pada akun WhatsApp
+biasa. `BOT_HTML_GAMES` kembali nonaktif. Jalur `.raw` tetap tersedia untuk
+menguji jenis proto lain yang memang didokumentasikan sebagai raw-send Zapo.
+
+Yang masih dapat diteliti secara sah adalah balasan asli dari bot `@bot` melalui
+`client.bot.sendPrompt`; itu dapat menunjukkan provenance asli, tetapi tidak
+memberikan credential untuk mengirim sebagai bot tersebut.
+
+## 6. Rencana implementasi historis
 
 Prasyarat: MVP selesai dan hijau.
 
