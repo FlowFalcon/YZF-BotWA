@@ -1,5 +1,5 @@
 import type { RichInteractiveContent } from '../messages/rich.js'
-import type { HtmlPrimitiveContent } from '../messages/ai-rich.js'
+import type { RawProtoContent } from '../messages/ai-rich.js'
 import type { IncomingMessageContent, MediaReply } from '../media/types.js'
 
 export type CommandCategory = 'general' | 'fun'
@@ -34,10 +34,11 @@ export interface CommandContext {
   /** Sends encoded media (sticker) back to the same chat. */
   replyMedia(content: MediaReply): Promise<void>
   /**
-   * Sends a raw `botForwardedMessage` HTML payload. Separate from `replyContent`
-   * so the higher-risk route stays visible at every call site.
+   * Sends a raw `Proto.IMessage` payload (HTML primitive, or anything pasted
+   * through `.raw`). Separate from `replyContent` so the higher-risk route stays
+   * visible at every call site.
    */
-  replyRaw(content: HtmlPrimitiveContent): Promise<void>
+  replyRaw(content: RawProtoContent): Promise<void>
   react(emoji: string): Promise<void>
   /**
    * The incoming message content, for commands that need the attachment rather

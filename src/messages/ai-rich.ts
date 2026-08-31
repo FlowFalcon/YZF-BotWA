@@ -14,7 +14,13 @@ export interface HtmlPrimitiveInput {
   readonly responseId: string
 }
 
-export interface HtmlPrimitiveContent {
+/**
+ * Any raw `Proto.IMessage`-shaped payload. Used by the `.raw` command, where the
+ * fields are only known at runtime, and satisfied by the typed builders here.
+ */
+export type RawProtoContent = Readonly<Record<string, unknown>>
+
+export type HtmlPrimitiveContent = {
   readonly messageContextInfo: {
     readonly deviceListMetadata: Record<string, never>
     readonly deviceListMetadataVersion: number

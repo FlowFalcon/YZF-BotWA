@@ -3,7 +3,8 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'eslint.config.js'],
+    // ecosystem.config.cjs is pm2 runtime config, not project TypeScript.
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'eslint.config.js', '*.cjs'],
   },
   ...tseslint.configs.recommendedTypeChecked,
   {
