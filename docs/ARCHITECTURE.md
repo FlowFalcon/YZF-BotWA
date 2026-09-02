@@ -1,4 +1,6 @@
-# Architecture — Zapo Fun Bot
+# Architecture — YZF-BotWA
+
+> **Status:** Menjelaskan struktur yang berjalan pada `v0.0.1`: `app/` bootstrap, `lib/` runtime internal, `plugins/` surface fitur.
 
 ## 1. Prinsip
 
@@ -8,70 +10,53 @@
 4. **Explicit lifecycle.** Connect, reconnect, auth, dan shutdown memiliki satu owner.
 5. **Fail closed untuk registry/config.** Duplikat atau config invalid menghentikan startup.
 6. **Fail isolated untuk command.** Error feature dicatat dan dibalas tanpa mematikan bot.
-7. **YAGNI.** Single session, SQLite, dan enam command dahulu.
+7. **YAGNI.** Single session dan mode akses tunggal tanpa kombinasi boolean kontradiktif.
 
-## 2. Struktur target
+## 2. Struktur aktif
 
 ```text
-zapo-fun-bot/
-├── src/
-│   ├── index.ts
+YZF-BotWA/
+├── app/
+│   └── index.ts
+├── lib/
 │   ├── app.ts
 │   ├── config.ts
-│   ├── client/
-│   │   ├── create-client.ts
-│   │   ├── store.ts
-│   │   └── connection-manager.ts
+│   ├── settings.ts
+│   ├── access/
 │   ├── auth/
-│   │   ├── auth-controller.ts
-│   │   ├── qr.ts
-│   │   └── pairing.ts
-│   ├── messages/
-│   │   ├── extract-text.ts
-│   │   ├── identity.ts
-│   │   ├── context.ts
-│   │   └── router.ts
+│   ├── client/
 │   ├── commands/
-│   │   ├── command.ts
-│   │   ├── registry.ts
-│   │   ├── loader.ts
-│   │   ├── parser.ts
-│   │   └── middleware/
-│   │       ├── permission.ts
-│   │       ├── flood.ts
-│   │       ├── cooldown.ts
-│   │       └── error-boundary.ts
-│   ├── features/
-│   │   ├── general/
-│   │   │   ├── menu.ts
-│   │   │   └── ping.ts
-│   │   └── fun/
-│   │       ├── dice.ts
-│   │       ├── coinflip.ts
-│   │       ├── eightball.ts
-│   │       └── rate.ts
+│   ├── games/
+│   ├── media/
+│   ├── messages/
+│   ├── profile/
 │   └── shared/
-│       ├── clock.ts
-│       ├── random.ts
-│       └── logger.ts
+├── plugins/
+│   ├── tools/
+│   ├── sticker/
+│   ├── games/
+│   └── owner/
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   ├── e2e/
 │   └── fixtures/
 ├── docs/
-├── .auth/
+├── .auth/      # runtime, gitignored
+├── .runtime/   # runtime, gitignored
 ├── AGENTS.md
 └── package.json
 ```
+
+`plugins/` adalah surface fitur; nama subfolder selalu sama dengan `category` command di dalamnya (D-020). `app/index.ts` adalah entry point dan signal wiring. Subfolder `lib/` dibagi per tanggung jawab: `access` (mode/allowlist), `auth` (QR/pairing), `client` (koneksi dan store), `commands` (kontrak, loader, registry, middleware), `games` (aset HTML), `media` (ffmpeg dan tipe media), `messages` (router, context, builder presentasi), `profile` (branding), `shared` (clock/random).
 
 ## 3. Komponen
 
 ### App composition root
 
-`src/app.ts` membuat dependency dan memasangnya: config, logger, store, client, registry, middleware, router, auth controller, dan connection manager. Tidak ada business logic di composition root.
+`lib/app.ts` membuat dependency dan memasangnya: config, logger, store, client, registry, middleware, router, auth controller, dan connection manager. Tidak ada business logic di composition root.
 
-`src/index.ts` hanya memanggil bootstrap, memasang shutdown hook, dan menentukan exit code.
+`app/index.ts` membaca environment, membuat adapter produksi, memasang shutdown hook, dan menentukan exit code.
 
 ### Client/store
 
@@ -101,6 +86,13 @@ Registry memiliki satu record per canonical command dan index trigger → canoni
 
 Registry tidak global. Router menerima `CommandRegistry` melalui constructor/function argument.
 
+Reload memvalidasi source trusted `.ts`, mengompilasi candidate, menjalankan import probe child process dengan environment minimal dan timeout, lalu memvalidasi metadata/duplikat. Build diserialisasi dan setiap hasil valid dipublikasikan sebagai generation immutable unik di `.runtime/plugins/<generation>/`; registry lama tetap utuh sampai candidate lengkap. Source Plugin Manager dipromosikan atomik dari `.runtime/plugin-staging/` hanya setelah callback validasi berhasil.
+
+Runtime memantau `plugins/**/*.ts` untuk add/change/unlink. Save burst didebounce 400 ms dan reload
+diserialisasi. Loader membangun registry kandidat lengkap sebelum reference aktif ditukar; kegagalan
+import, metadata, typecheck, atau duplikat mempertahankan registry lama. Watcher ditutup sebelum
+`client.disconnect()`.
+
 ### Router dan middleware
 
 ```text
@@ -108,6 +100,7 @@ WhatsApp message event
   → event filter
   → context factory
   → command parser
+  → access mode gate
   → registry lookup
   → permission
   → flood limit
@@ -122,42 +115,24 @@ Middleware berupa fungsi kecil dengan contract yang sama. Pipeline disusun sekal
 
 Feature hanya berisi metadata dan behavior command. Feature tidak mengetahui loader, filesystem, auth, reconnect, atau SQLite session. Dependency non-deterministik (`clock`, `random`) tersedia dari context/service agar test stabil.
 
+Profile/branding memakai service kecil yang di-inject saat bootstrap. Service memisahkan mutasi `client.profile` dari aset thumbnail menu, memvalidasi input, mengubah gambar profil menjadi JPEG persegi deterministik, dan menyimpan thumbnail secara atomik di path yang dapat di-inject untuk test.
+
 ## 4. Kontrak tingkat tinggi
 
 ```ts
 export interface Command {
   readonly name: string
   readonly aliases?: readonly string[]
-  readonly category: 'general' | 'fun'
+  readonly category: CommandCategory
   readonly description: string
   readonly usage?: string
   readonly permission?: 'everyone' | 'owner'
   readonly cooldownMs?: number
   run(context: CommandContext): Promise<void>
 }
-
-export interface CommandContext {
-  readonly event: WaIncomingMessageEvent
-  readonly chatJid: string
-  readonly senderJid: string
-  readonly senderAltJid?: string
-  readonly senderPnJid?: string
-  readonly senderLidJid?: string
-  readonly senderNumber?: string
-  readonly pushName?: string
-  readonly isGroup: boolean
-  readonly isOwner: boolean
-  readonly prefix: string
-  readonly commandName: string
-  readonly args: readonly string[]
-  readonly text: string
-  readonly receivedAtMs: number
-  reply(content: string): Promise<void>
-  react(emoji: string): Promise<void>
-}
 ```
 
-Tipe final harus menggunakan tipe export aktual `zapo-js` dan dibuktikan dengan `tsc`; contoh ini adalah kontrak desain, bukan source final.
+`CommandCategory` adalah salah satu dari `owner`, `group`, `tools`, `downloader`, `sticker`, `games`. Bentuk lengkap `Command` dan `CommandContext` didefinisikan di `lib/commands/command.ts`; file itu adalah sumber kebenaran, dokumen ini tidak menduplikasinya.
 
 ## 5. Aliran startup
 
@@ -193,7 +168,7 @@ Invariant:
 
 ## 7. Storage
 
-MVP memakai satu SQLite protocol store di `.auth/state.sqlite`.
+MVP memakai satu SQLite protocol store di `.auth/state.sqlite` dan settings aplikasi di `.auth/settings.json`.
 
 Persisten:
 
@@ -213,6 +188,8 @@ Disabled:
 - `contacts`
 
 Cooldown/flood state berada di bounded memory dengan expiry. Tidak ada application database pada MVP.
+
+`settings.json` menyimpan satu `BotMode`: `public`, `group-only`, atau `owner-only`. Write memakai temporary file lalu rename atomik. File hilang, korup, atau format lama menghasilkan default aman `owner-only`. Router membaca mode melalui `SettingsView` pada setiap pesan, sebelum registry lookup. Owner tetap dapat menjalankan `.botmode` pada semua mode.
 
 ## 8. Error policy
 
@@ -237,20 +214,20 @@ Tidak ada global `uncaughtException` yang membuat proses terus berjalan dalam st
 
 ## 10. Configuration contract
 
-Environment variables yang direncanakan:
+Environment variables yang dibaca `lib/config.ts`:
 
 | Variable | Default | Catatan |
 |---|---|---|
 | `BOT_PREFIXES` | `.` | Dipisahkan koma. |
-| `BOT_OWNER_NUMBER` | kosong | Digit dengan country code; optional sampai command owner ada. |
+| `BOT_OWNER_NUMBER` | — | Wajib; digit dengan country code. Startup gagal bila kosong. |
 | `BOT_AUTH_METHOD` | `auto` | `auto`, `qr`, atau `pairing`. |
 | `BOT_PAIRING_NUMBER` | kosong | Wajib bila mode pairing noninteraktif. |
 | `BOT_SESSION_ID` | `default` | Jangan berubah setelah pairing. |
 | `BOT_STORE_PATH` | `.auth/state.sqlite` | Di luar source dan gitignored. |
 | `BOT_LOG_LEVEL` | `info` | Level logger. |
-| `NODE_ENV` | `development` | Mengontrol pretty/json log dan hot reload. |
+| `NODE_ENV` | `development` | Mengontrol format log. |
 
-Config object final bersifat readonly.
+`menuThumbnailPath` bukan environment variable: nilainya diturunkan dari `BOT_STORE_PATH` menjadi `<dir>/assets/menu-thumbnail.jpg`. Config object bersifat readonly.
 
 ## 11. Batas ekstensi
 

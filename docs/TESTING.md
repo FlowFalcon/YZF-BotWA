@@ -4,16 +4,15 @@
 
 Test membuktikan behavior produk, bukan sekadar coverage. Semua production behavior baru mengikuti RED → GREEN → REFACTOR.
 
-## 2. Tooling target
+## 2. Tooling
 
 - Test runner: Vitest.
 - Coverage: V8 provider Vitest.
 - Typecheck: `tsc --noEmit`.
 - Lint: ESLint dengan type-aware rules yang relevan.
-- Format check: Prettier atau formatter tunggal yang dipilih saat scaffold.
 - E2E protocol: `@zapo-js/fake-server`.
 
-Script contract yang harus tersedia setelah scaffold:
+Script yang tersedia di `package.json`:
 
 ```json
 {
@@ -25,6 +24,8 @@ Script contract yang harus tersedia setelah scaffold:
   "check": "npm run typecheck && npm run lint && npm test"
 }
 ```
+
+Formatter terpisah tidak dipakai: gaya kode dijaga ESLint.
 
 ## 3. TDD workflow
 
@@ -54,11 +55,15 @@ Target:
 - command parser;
 - command metadata validation;
 - duplicate registry detection;
+- candidate registry swap/retention, policy capability/top-level/realpath, immutable generation concurrent build, output containment, staging promotion, dan watcher add/change/unlink, debounce, serialisasi, serta shutdown;
 - permission middleware;
 - flood limiter;
 - cooldown expiry/cleanup;
 - reconnect backoff calculation;
-- keenam command dengan fake context, clock, dan random.
+- settings store dengan temporary path, safe default, atomic persistence, dan concurrent writes;
+- matriks penuh mode × private/group × owner/non-owner;
+- menu, Owner Menu, `.botmode`, profile/branding owner, sticker, dan AIRich Dino;
+- profile coordinator fake, resize/crop JPEG deterministik, validasi tipe/limit, serta thumbnail atomic pada temporary path (test tidak menyentuh `.auth`).
 
 ### Integration
 
@@ -95,7 +100,7 @@ Hanya setelah automated suite lulus, dengan akun test:
 - QR pairing;
 - pairing code;
 - restart tanpa pairing;
-- private `.menu` dan `.dice`;
+- private `.menu`, `.sticker`, dan owner `.botmode`;
 - group `.ping` dan identitas LID;
 - transient reconnect bila dapat diuji aman;
 - SIGTERM graceful shutdown.
@@ -111,10 +116,11 @@ Hasil dicatat tanpa QR payload, pairing code, nomor penuh, atau credential.
 | Registry | commands unik | duplicate name/alias, invalid module |
 | Identity | PN private, LID group | alternate missing |
 | Permission | everyone/owner | non-owner ditolak |
+| BotMode | seluruh matriks chat × owner × mode | file hilang/korup, perubahan runtime, jalur darurat owner |
 | Cooldown | first call allowed | repeated call blocked, expiry |
 | Reconnect | transient close | logout, max attempts, shutdown race |
 | Auth | QR/pairing | missing pairing number, passkey required |
-| Features | valid input | empty input, random boundaries |
+| Features | menu/sticker/AIRich/owner controls | input invalid dan command yang dihapus tidak terdaftar |
 | Router | reply sukses | feature throws, send fails |
 
 ## 6. Determinisme

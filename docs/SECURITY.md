@@ -25,7 +25,7 @@ MVP tidak boleh memiliki:
 
 - Semua command metadata divalidasi saat startup.
 - Semua pesan dianggap untrusted input.
-- Panjang command body dibatasi sebelum parsing; nilai awal yang direncanakan 4 KiB.
+- Panjang command body dibatasi sebelum parsing: `MAX_COMMAND_BODY_BYTES` = 4096 byte UTF-8 di `lib/commands/parser.ts`; body yang lebih panjang tidak diparse.
 - Output user tidak dipakai sebagai path, module specifier, SQL, shell argument, atau log template.
 - Nomor pairing dinormalisasi ke digit dan divalidasi sebelum API dipanggil.
 
@@ -75,6 +75,23 @@ Debug logging yang lebih detail harus opt-in, temporer, dan tetap menyensor secr
 - Satu `sessionId` hanya dimiliki satu proses pada saat yang sama.
 - Jangan membuka SQLite session yang sama dari dua instance bot.
 - Message/thread/contact archive disabled pada MVP untuk minimisasi data.
+- Mode runtime disimpan di `.auth/settings.json` dengan write-then-rename atomik dan permission file terbatas bila OS mendukung.
+- Settings hilang, korup, atau legacy harus fail closed ke `owner-only`; tidak boleh menebak mode lebih terbuka.
+- `.raw` dan parser payload dari chat tidak tersedia. AIRich built-in hanya memakai builder typed yang ditinjau.
+- Plugin adalah trusted owner code, bukan sandbox. Hanya source `.ts` reguler maksimal 256 KiB yang diterima; path keluar project, symlink, `.d.ts`, dan file non-TypeScript ditolak.
+- Static policy konservatif menolak seluruh referensi `eval`, `Function`, `process`, `globalThis`, `require`, dan `createRequire`; dynamic import; tagged template; initializer top-level impure; assignment/call/await top-level; import paket di luar `zapo-js`; serta built-in di luar `node:crypto`/`node:fs`/`node:stream`. Relative import diperiksa dengan `realpath`; symlink dan path escape ditolak.
+- Candidate dikompilasi dengan dependency terpasang dan diprobe lewat child process dengan environment minimal, timeout 2 detik, dan `SIGKILL` saat timeout. Probe bukan sandbox filesystem/network. Build diserialisasi dan hanya mempublikasikan generation immutable unik setelah seluruh validasi berhasil; candidate gagal dibersihkan dan registry lama dipertahankan.
+- Staging Plugin Manager divalidasi per komponen path dengan `lstat`/`realpath` sebelum write dan sebelum promote; `.runtime`, `.runtime/plugin-staging`, file staged, dan `plugins/` yang berupa symlink ditolak sehingga source tidak pernah ditulis atau dipromosikan ke luar project.
+- Lock build lintas process menyimpan PID dan timestamp owner. Lock milik process hidup tidak pernah diambil; lock dengan owner mati, owner metadata korup, atau tanpa owner melewati grace direcover tanpa menunggu timeout 30 detik.
+- Retensi output plugin dibatasi tepat tiga generation termasuk yang aktif; directory dengan nama di luar format generation dihapus tanpa memakan kuota retensi.
+
+## 7A. Access mode
+
+- `public` membuka private chat dan grup, tetapi permission command tetap berlaku.
+- `group-only` membuka grup untuk semua anggota dan private chat hanya untuk owner.
+- `owner-only` membuka command hanya untuk owner di kedua jenis chat.
+- Access gate berjalan sebelum registry lookup. Penolakan senyap.
+- `.botmode` owner-only selalu dapat melewati jalur kontrol agar mode tidak mengunci owner permanen.
 
 ## 8. Error handling
 
