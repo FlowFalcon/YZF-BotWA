@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeSticker } from '../../../src/media/ffmpeg.js'
+import { encodeSticker } from '../../../lib/media/ffmpeg.js'
 import { sampleMp4, samplePng } from '../../support/media-fixtures.js'
 
 const png = await samplePng()

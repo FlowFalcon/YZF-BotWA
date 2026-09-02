@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { STORE_PROVIDERS, createProtocolStore } from '../../src/client/store.js'
+import { STORE_PROVIDERS, createProtocolStore } from '../../lib/client/store.js'
 
 let workDir: string
 

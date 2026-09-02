@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildStickerExif, STICKER_SIZE, stickerArgs } from '../../../src/media/sticker-codec.js'
+import { buildStickerExif, STICKER_SIZE, stickerArgs } from '../../../lib/media/sticker-codec.js'
 
 describe('stickerArgs', () => {
   it('scales into a square canvas with transparent padding, never cropping', () => {

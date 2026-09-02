@@ -4,7 +4,7 @@ import {
   createConnectionManager,
   type ConnectionClient,
   type ConnectionEvent,
-} from '../../src/client/connection-manager.js'
+} from '../../lib/client/connection-manager.js'
 
 interface FakeClient extends ConnectionClient {
   readonly connectCalls: number
@@ -12,6 +12,7 @@ interface FakeClient extends ConnectionClient {
   readonly connectionListeners: number
   emit(event: ConnectionEvent): void
   failNextConnect(error: Error): void
+  failNextDisconnect(error: Error): void
 }
 
 function createFakeClient(): FakeClient {
@@ -19,6 +20,7 @@ function createFakeClient(): FakeClient {
   let connectCalls = 0
   let disconnectCalls = 0
   let pendingFailure: Error | undefined
+  let pendingDisconnectFailure: Error | undefined
 
   return {
     get connectCalls() {
@@ -46,6 +48,11 @@ function createFakeClient(): FakeClient {
     },
     disconnect() {
       disconnectCalls += 1
+      if (pendingDisconnectFailure !== undefined) {
+        const error = pendingDisconnectFailure
+        pendingDisconnectFailure = undefined
+        return Promise.reject(error)
+      }
       return Promise.resolve()
     },
     emit(event) {
@@ -55,6 +62,9 @@ function createFakeClient(): FakeClient {
     },
     failNextConnect(error) {
       pendingFailure = error
+    },
+    failNextDisconnect(error) {
+      pendingDisconnectFailure = error
     },
   }
 }
@@ -224,6 +234,21 @@ describe('createConnectionManager', () => {
     expect(manager.state).toBe('stopped')
     await vi.advanceTimersByTimeAsync(120_000)
     expect(client.connectCalls).toBe(1)
+  })
+
+  it('retries disconnect after a failed stop', async () => {
+    const client = createFakeClient()
+    const manager = createConnectionManager({ client })
+    client.failNextDisconnect(new Error('disconnect failed'))
+
+    manager.start()
+    await expect(manager.stop()).rejects.toThrow('disconnect failed')
+    expect(manager.state).not.toBe('stopped')
+
+    await manager.stop()
+
+    expect(client.disconnectCalls).toBe(2)
+    expect(manager.state).toBe('stopped')
   })
 
   it('applies the retry policy to a rejected connect', async () => {

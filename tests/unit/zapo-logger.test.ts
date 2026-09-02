@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { toZapoLogger } from '../../src/shared/zapo-logger.js'
+import { toZapoLogger } from '../../lib/shared/zapo-logger.js'
 
 interface Call {
   readonly fields: object

@@ -1,9 +1,9 @@
-import type { Command } from '../../../../../src/commands/command.js'
+import type { Command } from '../../../../../lib/commands/command.js'
 
 const command = {
   name: 'ping',
   aliases: ['p'],
-  category: 'general',
+  category: 'tools',
   description: 'Membalas pong.',
   async run(ctx) {
     await ctx.reply('pong')

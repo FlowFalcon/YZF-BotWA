@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createApp } from '../../src/app.js'
+import { createApp } from '../../lib/app.js'
 
 describe('entrypoint', () => {
   it('exposes the app composition root', () => {

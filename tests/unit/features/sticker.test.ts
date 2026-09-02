@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Readable } from 'node:stream'
-import { createStickerCommand } from '../../../src/features/media/sticker.js'
-import type { CommandContext } from '../../../src/commands/command.js'
-import type { EncodeStickerOptions } from '../../../src/media/ffmpeg.js'
-import type { MediaReply } from '../../../src/media/types.js'
+import { createStickerCommand } from '../../../plugins/sticker/sticker.js'
+import type { CommandContext } from '../../../lib/commands/command.js'
+import type { EncodeStickerOptions } from '../../../lib/media/ffmpeg.js'
+import type { MediaReply } from '../../../lib/media/types.js'
 
 const replyFn = () =>
   vi.fn((text: string) => {
@@ -31,6 +31,8 @@ const context = (parts: Record<string, unknown>): CommandContext =>
     prefix: '.',
     pushName: 'Fathur',
     reply: replyFn(),
+    settings: { getMode: () => 'owner-only' },
+    commands: { list: () => [] },
     react: vi.fn(() => Promise.resolve()),
     replyMedia: mediaFn(),
     ...parts,

@@ -4,12 +4,12 @@ import {
   createMessageRouter,
   OWNER_ONLY_REPLY,
   rateLimitReply,
-} from '../../src/messages/router.js'
-import type { CommandReport, MessageRouterOptions } from '../../src/messages/router.js'
-import { createCommandRegistry } from '../../src/commands/registry.js'
-import type { Command, CommandContext } from '../../src/commands/command.js'
-import { GENERIC_ERROR_REPLY } from '../../src/commands/middleware/error-boundary.js'
-import type { CommandErrorReport } from '../../src/commands/middleware/error-boundary.js'
+} from '../../lib/messages/router.js'
+import type { CommandReport, MessageRouterOptions } from '../../lib/messages/router.js'
+import { createCommandRegistry } from '../../lib/commands/registry.js'
+import type { Command, CommandContext } from '../../lib/commands/command.js'
+import { GENERIC_ERROR_REPLY } from '../../lib/commands/middleware/error-boundary.js'
+import type { CommandErrorReport } from '../../lib/commands/middleware/error-boundary.js'
 import {
   buildIncomingMessageEvent,
   groupPnParticipantEvent,
@@ -67,12 +67,10 @@ function harness(
       flood: { check: () => ({ allowed: true }) },
       cooldown: { check: () => ({ allowed: true }) },
       reporter: { command: () => undefined, error: () => undefined },
-      // Existing router tests predate private mode; an allow-all allowlist keeps
-      // them focused on pipeline behavior. Access rules live in router-access.test.ts.
-      access: { has: () => true },
-      // Private mode denies non-owner private chats, so the pipeline tests below
-      // speak as the owner. Access rules themselves live in router-access.test.ts.
+      // Access-mode behavior lives in router-access.test.ts; keep this harness public.
+      settings: { getMode: () => 'public' },
       ownerNumber: '6289876543210',
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
       ...overrides,
     },
   }
@@ -82,7 +80,7 @@ function pingWithAlias(state: { ran: string[]; contexts: CommandContext[] }): Co
   return {
     name: 'ping',
     aliases: ['p'],
-    category: 'general',
+    category: 'tools',
     description: 'ping',
     run: recording(state, 'ping'),
   }
@@ -142,7 +140,7 @@ describe('createMessageRouter', () => {
     const { options, contexts } = harness((state) => [
       {
         name: 'rate',
-        category: 'fun',
+        category: 'games',
         description: 'rate',
         run: recording(state, 'rate'),
       },
@@ -164,7 +162,7 @@ describe('createMessageRouter', () => {
       (state) => [
         {
           name: 'shutdown',
-          category: 'general',
+          category: 'tools',
           description: 'shutdown',
           permission: 'owner',
           run: recording(state, 'shutdown'),
@@ -196,7 +194,7 @@ describe('createMessageRouter', () => {
       (state) => [
         {
           name: 'shutdown',
-          category: 'general',
+          category: 'tools',
           description: 'shutdown',
           permission: 'owner',
           run: recording(state, 'shutdown'),
@@ -259,13 +257,13 @@ describe('createMessageRouter', () => {
       () => [
         {
           name: 'boom',
-          category: 'fun',
+          category: 'games',
           description: 'boom',
           run: () => Promise.reject(new Error('kaboom')),
         },
         {
           name: 'ping',
-          category: 'general',
+          category: 'tools',
           description: 'ping',
           run: () => {
             ran.push('ping')
@@ -330,7 +328,7 @@ describe('createMessageRouter', () => {
       (state) => [
         {
           name: 'shutdown',
-          category: 'general',
+          category: 'tools',
           description: 'shutdown',
           permission: 'owner',
           run: recording(state, 'shutdown'),

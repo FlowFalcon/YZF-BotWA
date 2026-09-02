@@ -1,8 +1,8 @@
-import type { Command } from '../../../../src/commands/command.js'
+import type { Command } from '../../../../lib/commands/command.js'
 
 const command = {
   name: 'ping',
-  category: 'general',
+  category: 'tools',
   description: 'Fixture pertama pemilik trigger "ping".',
   async run(ctx) {
     await ctx.reply('pong')

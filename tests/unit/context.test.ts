@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { WaSendMessageContent } from 'zapo-js'
-import { createCommandContext } from '../../src/messages/context.js'
-import type { MessageSender } from '../../src/messages/context.js'
-import type { ParsedCommand } from '../../src/commands/parser.js'
+import { createCommandContext } from '../../lib/messages/context.js'
+import type { MessageSender } from '../../lib/messages/context.js'
+import type { ParsedCommand } from '../../lib/commands/parser.js'
+import {
+  htmlPrimitiveMessage,
+  htmlPrimitiveSendOptions,
+  type AIRichSendOptions,
+} from '../../lib/messages/ai-rich.js'
 import {
   GROUP_JID,
   PEER_LID_JID,
@@ -11,18 +16,20 @@ import {
   privatePnEvent,
   textMessage,
 } from '../fixtures/messages.js'
+import { fakeSettings, fakeCommands } from '../fixtures/services.js'
 
 interface SentMessage {
   readonly to: string
   readonly content: WaSendMessageContent
+  readonly options?: AIRichSendOptions
 }
 
 function fakeSender(): { sender: MessageSender; sent: SentMessage[] } {
   const sent: SentMessage[] = []
   const sender: MessageSender = {
     message: {
-      send: (to, content) => {
-        sent.push({ to, content })
+      send: (to, content, options) => {
+        sent.push({ to, content, ...(options === undefined ? {} : { options }) })
         return Promise.resolve()
       },
     },
@@ -41,6 +48,9 @@ describe('createCommandContext', () => {
       sender,
       clock: { now: () => 1_000, schedule: () => () => undefined },
       random: { next: () => 0.5 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     })
 
     await context.reply('pong')
@@ -56,12 +66,35 @@ describe('createCommandContext', () => {
       sender,
       clock: { now: () => 1_000, schedule: () => () => undefined },
       random: { next: () => 0.5 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     })
 
     await context.reply('pong')
 
     expect(sent).toEqual([{ to: GROUP_JID, content: 'pong' }])
     expect(context.isGroup).toBe(true)
+  })
+
+  it('forwards typed AIRich content and options to the public Zapo send API via replyAIRich', async () => {
+    const { sender, sent } = fakeSender()
+    const context = createCommandContext({
+      event: groupPnParticipantEvent(textMessage('.dino')),
+      parsed: { prefix: '.', name: 'dino', args: [], text: '' },
+      sender,
+      clock: { now: () => 1_000, schedule: () => () => undefined },
+      random: { next: () => 0.5 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
+    })
+    const content = htmlPrimitiveMessage({ html: '<div>Dino</div>', caption: 'Dino', responseId: 'x' })
+    const options = htmlPrimitiveSendOptions()
+
+    await context.replyAIRich(content, options)
+
+    expect(sent).toEqual([{ to: GROUP_JID, content, options }])
   })
 
   it('flags the configured owner and nobody else', () => {
@@ -72,6 +105,9 @@ describe('createCommandContext', () => {
       sender,
       clock: { now: () => 1_000, schedule: () => () => undefined },
       random: { next: () => 0.5 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     }
 
     expect(createCommandContext({ ...base, ownerNumber: '6289876543210' }).isOwner).toBe(true)
@@ -88,6 +124,9 @@ describe('createCommandContext', () => {
       clock: { now: () => 1_000, schedule: () => () => undefined },
       random: { next: () => 0.5 },
       receivedAtMs: 900,
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     })
 
     expect(context.prefix).toBe('!')
@@ -118,6 +157,9 @@ describe('createCommandContext', () => {
         schedule: () => () => undefined,
       },
       random: { next: () => 0.25 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     })
 
     expect(context.receivedAtMs).toBe(5_001)
@@ -134,6 +176,9 @@ describe('createCommandContext', () => {
       sender,
       clock: { now: () => 1_000, schedule: () => () => undefined },
       random: { next: () => 0.5 },
+      settings: fakeSettings(),
+      commands: fakeCommands(),
+      menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     })
 
     await context.react('🎲')

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isOwnerNumber, resolveIdentity } from '../../src/messages/identity.js'
+import { isOwnerNumber, resolveIdentity } from '../../lib/messages/identity.js'
 import {
   GROUP_JID,
   PEER_LID_JID,

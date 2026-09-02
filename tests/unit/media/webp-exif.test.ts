@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attachExifChunk } from '../../../src/media/webp-exif.js'
+import { attachExifChunk } from '../../../lib/media/webp-exif.js'
 
 const riff = (payload: Uint8Array): Uint8Array => {
   const out = new Uint8Array(12 + payload.byteLength)

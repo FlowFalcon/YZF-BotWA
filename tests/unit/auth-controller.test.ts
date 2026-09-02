@@ -6,7 +6,7 @@ import {
   type AuthEvents,
   type AuthNotice,
   type AuthPairedCredentials,
-} from '../../src/auth/auth-controller.js'
+} from '../../lib/auth/auth-controller.js'
 
 type Listener = AuthEvents[keyof AuthEvents]
 

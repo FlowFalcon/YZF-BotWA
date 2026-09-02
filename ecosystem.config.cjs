@@ -10,8 +10,8 @@
 module.exports = {
   apps: [
     {
-      name: 'zapo-fun-bot',
-      script: 'dist/index.js',
+      name: 'yzf-botwa',
+      script: 'dist/app/index.js',
       cwd: '/root/zapo-fun-bot',
       // --env-file is the only way this project loads .env (no dotenv dependency).
       node_args: '--env-file=.env',
@@ -24,8 +24,8 @@ module.exports = {
       kill_timeout: 10000,
       time: false,
       merge_logs: true,
-      out_file: '/root/.pm2/logs/zapo-fun-bot-out.log',
-      error_file: '/root/.pm2/logs/zapo-fun-bot-error.log',
+      out_file: '/root/.pm2/logs/yzf-botwa-out.log',
+      error_file: '/root/.pm2/logs/yzf-botwa-error.log',
     },
   ],
 }

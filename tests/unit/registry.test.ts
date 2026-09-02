@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Command } from '../../src/commands/command.js'
-import { createCommandRegistry } from '../../src/commands/registry.js'
+import type { Command } from '../../lib/commands/command.js'
+import { createCommandRegistry } from '../../lib/commands/registry.js'
 
 function makeCommand(overrides: Partial<Command> & Pick<Command, 'name'>): Command {
   return {
-    category: 'general',
+    category: 'tools',
     description: 'Deskripsi singkat.',
     run: async () => {},
     ...overrides,
@@ -98,10 +98,10 @@ describe('createCommandRegistry', () => {
 
   it('lists canonical commands only, sorted by category then name', () => {
     const registry = createCommandRegistry([
-      makeCommand({ name: 'ping', aliases: ['p'], category: 'general' }),
-      makeCommand({ name: 'dice', aliases: ['dadu'], category: 'fun' }),
-      makeCommand({ name: 'menu', aliases: ['help'], category: 'general' }),
-      makeCommand({ name: 'coinflip', category: 'fun' }),
+      makeCommand({ name: 'ping', aliases: ['p'], category: 'tools' }),
+      makeCommand({ name: 'dice', aliases: ['dadu'], category: 'games' }),
+      makeCommand({ name: 'menu', aliases: ['help'], category: 'tools' }),
+      makeCommand({ name: 'coinflip', category: 'games' }),
     ])
 
     expect(registry.list().map((command) => command.name)).toEqual([

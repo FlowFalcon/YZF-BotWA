@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MAX_COMMAND_BODY_BYTES, parseCommand } from '../../src/commands/parser.js'
+import { MAX_COMMAND_BODY_BYTES, parseCommand } from '../../lib/commands/parser.js'
 
 describe('parseCommand', () => {
   it('parses a simple command without arguments', () => {

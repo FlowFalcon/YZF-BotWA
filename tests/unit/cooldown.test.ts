@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Command } from '../../src/commands/command.js'
-import { createCooldownGate } from '../../src/commands/middleware/cooldown.js'
-import { createCommandRegistry } from '../../src/commands/registry.js'
-import type { Clock } from '../../src/shared/clock.js'
+import type { Command } from '../../lib/commands/command.js'
+import { createCooldownGate } from '../../lib/commands/middleware/cooldown.js'
+import { createCommandRegistry } from '../../lib/commands/registry.js'
+import type { Clock } from '../../lib/shared/clock.js'
 
 const SENDER = '62800@s.whatsapp.net'
 const OTHER = '62801@s.whatsapp.net'
@@ -12,7 +12,7 @@ function buildCommand(overrides: Partial<Command> = {}): Command {
   return {
     name: 'dice',
     aliases: ['dadu'],
-    category: 'fun',
+    category: 'games',
     description: 'Melempar dadu.',
     cooldownMs: 3_000,
     run: () => Promise.resolve(),
@@ -25,7 +25,7 @@ function buildCommandWithoutCooldown(name = 'dice'): Command {
   return {
     name,
     aliases: ['dadu'],
-    category: 'fun',
+    category: 'games',
     description: 'Melempar dadu.',
     run: () => Promise.resolve(),
   }

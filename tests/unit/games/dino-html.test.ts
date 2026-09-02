@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DINO_HTML } from '../../../src/games/dino-html.js'
+import { DINO_HTML } from '../../../lib/games/dino-html.js'
 
 describe('DINO_HTML', () => {
   it('fits inside the primitive payload ceiling', () => {

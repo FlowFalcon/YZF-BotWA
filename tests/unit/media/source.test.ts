@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveStickerSource } from '../../../src/media/source.js'
+import { resolveStickerSource } from '../../../lib/media/source.js'
 
 describe('resolveStickerSource', () => {
   it('picks a directly attached image', () => {

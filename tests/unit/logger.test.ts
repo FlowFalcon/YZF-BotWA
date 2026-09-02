@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createLogger, commandLogFields } from '../../src/shared/logger.js'
+import { createLogger, commandLogFields } from '../../lib/shared/logger.js'
 
 interface Capture {
   readonly lines: () => readonly Record<string, unknown>[]

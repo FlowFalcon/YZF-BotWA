@@ -1,5 +1,58 @@
 import { describe, expect, it } from 'vitest'
-import { readRichReplyId, richButtons, richList } from '../../src/messages/rich.js'
+import {
+  externalAdReplyText,
+  readRichReplyId,
+  richButtons,
+  richList,
+} from '../../lib/messages/rich.js'
+
+describe('externalAdReplyText', () => {
+  it('builds a typed text message with an in-memory thumbnail', () => {
+    const thumbnail = new Uint8Array([1, 2, 3])
+    const content = externalAdReplyText({
+      text: 'Bot aktif.',
+      title: 'YZF-BotWA',
+      body: 'WhatsApp Bot Modular',
+      sourceUrl: 'https://github.com/',
+      thumbnail,
+    })
+
+    expect(content).toEqual({
+      type: 'text',
+      text: 'Bot aktif.',
+      contextInfo: {
+        raw: {
+          externalAdReply: {
+            title: 'YZF-BotWA',
+            body: 'WhatsApp Bot Modular',
+            sourceUrl: 'https://github.com/',
+            thumbnail,
+            mediaType: 1,
+            renderLargerThumbnail: false,
+            showAdAttribution: false,
+          },
+        },
+      },
+    })
+  })
+
+  it('omits optional fields instead of emitting undefined proto values', () => {
+    expect(externalAdReplyText({ text: 'Pong', title: 'YZF-BotWA' })).toEqual({
+      type: 'text',
+      text: 'Pong',
+      contextInfo: {
+        raw: {
+          externalAdReply: {
+            title: 'YZF-BotWA',
+            mediaType: 1,
+            renderLargerThumbnail: false,
+            showAdAttribution: false,
+          },
+        },
+      },
+    })
+  })
+})
 
 describe('richButtons', () => {
   it('builds a native-flow quick reply payload', () => {
@@ -30,6 +83,36 @@ describe('richButtons', () => {
 
   it('rejects an empty button list so an unusable card is never sent', () => {
     expect(() => richButtons({ text: 'x', buttons: [] })).toThrow(/at least one button/)
+  })
+
+  it('carries a thumbnail through externalAdReply instead of a native header', () => {
+    const thumbnail = new Uint8Array([9, 8, 7])
+    const content = richButtons({
+      text: 'Menu',
+      buttons: [{ text: 'Ping', id: '.ping' }],
+      externalAdReply: {
+        title: 'YZF-BotWA',
+        body: 'WhatsApp Bot Modular',
+        thumbnail,
+        renderLargerThumbnail: true,
+      },
+    })
+
+    expect(content.interactiveMessage.contextInfo).toEqual({
+      externalAdReply: {
+        title: 'YZF-BotWA',
+        body: 'WhatsApp Bot Modular',
+        thumbnail,
+        mediaType: 1,
+        renderLargerThumbnail: true,
+        showAdAttribution: false,
+      },
+    })
+  })
+
+  it('omits contextInfo when no ad card is requested', () => {
+    const content = richButtons({ text: 'x', buttons: [{ text: 'a', id: '.a' }] })
+    expect(content.interactiveMessage.contextInfo).toBeUndefined()
   })
 })
 

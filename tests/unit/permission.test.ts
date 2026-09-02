@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Command } from '../../src/commands/command.js'
-import { createCooldownGate } from '../../src/commands/middleware/cooldown.js'
-import { checkPermission } from '../../src/commands/middleware/permission.js'
-import type { Clock } from '../../src/shared/clock.js'
+import type { Command } from '../../lib/commands/command.js'
+import { createCooldownGate } from '../../lib/commands/middleware/cooldown.js'
+import { checkPermission } from '../../lib/commands/middleware/permission.js'
+import type { Clock } from '../../lib/shared/clock.js'
 
 function buildCommand(overrides: Partial<Command> = {}): Command {
   return {
     name: 'ping',
-    category: 'general',
+    category: 'tools',
     description: 'Membalas pong.',
     run: () => Promise.resolve(),
     ...overrides,

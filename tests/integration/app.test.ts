@@ -4,19 +4,18 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { WaIncomingMessageEvent } from 'zapo-js'
 
-import { createApp } from '../../src/app.js'
-import { loadConfig } from '../../src/config.js'
-import type { BotConfig } from '../../src/config.js'
-import { loadCommands } from '../../src/commands/loader.js'
-import type { CommandRegistry } from '../../src/commands/registry.js'
-import { setMenuSource } from '../../src/features/general/menu.js'
+import { createApp } from '../../lib/app.js'
+import { loadConfig } from '../../lib/config.js'
+import type { BotConfig } from '../../lib/config.js'
+import { loadCommands } from '../../lib/commands/loader.js'
+import type { CommandRegistry } from '../../lib/commands/registry.js'
 import {
   buildIncomingMessageEvent,
   OWNER_PN_JID,
   textMessage,
 } from '../fixtures/messages.js'
 
-const FEATURES_DIR = path.resolve(import.meta.dirname, '../../src/features')
+const PLUGINS_DIR = path.resolve(import.meta.dirname, '../../plugins')
 
 interface SentMessage {
   readonly to: string
@@ -65,8 +64,11 @@ class FakeClient {
     return Promise.resolve()
   }
 
+  onDisconnect?: () => void
+
   disconnect(): Promise<void> {
     this.disconnectCalls += 1
+    this.onDisconnect?.()
     return Promise.resolve()
   }
 
@@ -111,14 +113,13 @@ describe('createApp', () => {
     })
     // Loaded through the real loader so the ESM module instance app.ts injects
     // the menu source into is the same one the loader imported.
-    registry = await loadCommands(FEATURES_DIR, { extension: '.ts' })
+    registry = await loadCommands(PLUGINS_DIR, { extension: '.ts' })
     client = new FakeClient()
     store = new FakeStore()
   })
 
   afterEach(async () => {
-    setMenuSource(undefined)
-    await rm(storePath, { recursive: true, force: true })
+        await rm(storePath, { recursive: true, force: true })
   })
 
   function build(): ReturnType<typeof createApp> {
@@ -128,7 +129,10 @@ describe('createApp', () => {
       store,
       client,
       registry,
-      allowlist: { has: () => true, list: () => [], add: () => Promise.resolve(), remove: () => Promise.resolve() },
+      settings: {
+        getMode: () => 'owner-only',
+        setMode: () => Promise.resolve(),
+      },
     })
   }
 
@@ -156,16 +160,53 @@ describe('createApp', () => {
     await client.emit('message', textEvent('.menu'))
 
     const reply = JSON.stringify(client.sent[0]?.content)
-    expect(reply).not.toContain('Menu belum siap')
     expect(reply).toContain('.ping')
-    expect(reply).toContain('.dice')
+    expect(reply).toContain('.sticker')
   })
 
-  it('disconnects and destroys the store on stop', async () => {
-    const app = build()
+  it('closes the plugin watcher before disconnecting and destroys the store', async () => {
+    const order: string[] = []
+    client.onDisconnect = () => { order.push('disconnect') }
+    const app = createApp({
+      config,
+      logger: { info: () => {}, warn: () => {}, error: () => {} },
+      store,
+      client,
+      registry,
+      settings: { getMode: () => 'owner-only', setMode: () => Promise.resolve() },
+      pluginWatcher: { close: () => { order.push('watcher'); return Promise.resolve() } },
+    })
     await app.start()
     await app.stop()
 
+    expect(order).toEqual(['watcher', 'disconnect'])
+    expect(client.disconnectCalls).toBe(1)
+    expect(store.destroyCalls).toBe(1)
+  })
+
+  it('retries a failed plugin watcher close without repeating completed cleanup', async () => {
+    let closeCalls = 0
+    const closeError = new Error('watcher close failed')
+    const app = createApp({
+      config,
+      logger: { info: () => {}, warn: () => {}, error: () => {} },
+      store,
+      client,
+      registry,
+      settings: { getMode: () => 'owner-only', setMode: () => Promise.resolve() },
+      pluginWatcher: {
+        close: () => {
+          closeCalls += 1
+          return closeCalls === 1 ? Promise.reject(closeError) : Promise.resolve()
+        },
+      },
+    })
+    await app.start()
+
+    await expect(app.stop()).rejects.toBe(closeError)
+    await app.stop()
+
+    expect(closeCalls).toBe(2)
     expect(client.disconnectCalls).toBe(1)
     expect(store.destroyCalls).toBe(1)
   })

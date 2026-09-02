@@ -1,5 +1,5 @@
 import { runInNewContext } from 'node:vm'
-import { DINO_HTML } from '../../src/games/dino-html.js'
+import { DINO_HTML } from '../../lib/games/dino-html.js'
 
 export interface DinoRunOptions {
   readonly frames: number

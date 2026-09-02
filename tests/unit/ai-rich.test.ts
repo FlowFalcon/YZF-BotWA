@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { proto } from 'zapo-js'
-import { htmlPrimitiveMessage, HTML_PRIMITIVE_TYPENAME } from '../../src/messages/ai-rich.js'
+import {
+  htmlPrimitiveMessage,
+  htmlPrimitiveSendOptions,
+  HTML_PRIMITIVE_TYPENAME,
+} from '../../lib/messages/ai-rich.js'
 
 const decodeUnified = (content: ReturnType<typeof htmlPrimitiveMessage>): Record<string, unknown> => {
   const data = content.botForwardedMessage.message.richResponseMessage.unifiedResponse.data
@@ -77,5 +81,27 @@ describe('htmlPrimitiveMessage', () => {
     expect(() =>
       htmlPrimitiveMessage({ html: 'x'.repeat(200_000), caption: 'c', responseId: 'x' }),
     ).toThrow(/too large/i)
+  })
+})
+
+describe('htmlPrimitiveSendOptions', () => {
+  it('forces type=text, because type=media makes stock clients suppress AIRich', () => {
+    expect(htmlPrimitiveSendOptions().additionalAttributes).toEqual({ type: 'text' })
+  })
+
+  it('adds the exact business native-flow companion node required by the renderer', () => {
+    expect(htmlPrimitiveSendOptions().customNodes).toEqual([
+      {
+        tag: 'biz',
+        attrs: {},
+        content: [
+          {
+            tag: 'interactive',
+            attrs: { type: 'native_flow', v: '1' },
+            content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+          },
+        ],
+      },
+    ])
   })
 })

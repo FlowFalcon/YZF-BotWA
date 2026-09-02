@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { extractMessageText } from '../../src/messages/extract-text.js'
+import { extractMessageText } from '../../lib/messages/extract-text.js'
 import {
   extendedTextMessage,
   imageCaptionMessage,

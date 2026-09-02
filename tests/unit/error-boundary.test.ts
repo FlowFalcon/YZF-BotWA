@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Command, CommandContext } from '../../src/commands/command.js'
+import type { Command, CommandContext } from '../../lib/commands/command.js'
 import {
   GENERIC_ERROR_REPLY,
   runWithErrorBoundary,
   type CommandErrorReport,
-} from '../../src/commands/middleware/error-boundary.js'
+} from '../../lib/commands/middleware/error-boundary.js'
 
 function buildContext(overrides: Partial<CommandContext> = {}): CommandContext {
   return {
@@ -23,14 +23,17 @@ function buildContext(overrides: Partial<CommandContext> = {}): CommandContext {
     reply: () => Promise.resolve(),
     replyContent: () => Promise.resolve(),
     replyMedia: () => Promise.resolve(),
-    replyRaw: () => Promise.resolve(),
+    replyAIRich: () => Promise.resolve(),
+    settings: { getMode: () => 'owner-only' },
+    commands: { list: () => [] },
+    menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
     react: () => Promise.resolve(),
     ...overrides,
   }
 }
 
 function buildCommand(run: Command['run']): Command {
-  return { name: 'dice', category: 'fun', description: 'Melempar dadu.', run }
+  return { name: 'dice', category: 'games', description: 'Melempar dadu.', run }
 }
 
 describe('runWithErrorBoundary', () => {

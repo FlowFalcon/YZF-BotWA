@@ -1,10 +1,10 @@
-import type { Command } from '../../../../src/commands/command.js'
+import type { Command } from '../../../../lib/commands/command.js'
 
 /** Alias sengaja bertabrakan dengan `first-ping.ts`. */
 const command = {
   name: 'pong',
   aliases: ['ping'],
-  category: 'general',
+  category: 'tools',
   description: 'Fixture dengan trigger duplikat.',
   async run(ctx) {
     await ctx.reply('pong')

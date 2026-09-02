@@ -6,16 +6,15 @@ import { FakeWaServer, parsePairingQrString } from '@zapo-js/fake-server'
 import type { WaFakeConnectionPipeline } from '@zapo-js/fake-server'
 import { createStore, WaClient } from 'zapo-js'
 
-import { createApp } from '../../src/app.js'
-import { createGroupAllowlist } from '../../src/access/group-allowlist.js'
-import type { GroupAllowlist } from '../../src/access/group-allowlist.js'
-import { loadCommands } from '../../src/commands/loader.js'
-import { loadConfig } from '../../src/config.js'
-import { setAccessAllowlist } from '../../src/features/general/access.js'
-import { setMenuSource } from '../../src/features/general/menu.js'
+import { createApp } from '../../lib/app.js'
+import { loadCommands } from '../../lib/commands/loader.js'
+import { loadConfig } from '../../lib/config.js'
+import { createSettingsStore } from '../../lib/settings.js'
+import type { SettingsStore } from '../../lib/settings.js'
 
-const FEATURES_DIR = path.resolve(import.meta.dirname, '../../src/features')
+const PLUGINS_DIR = path.resolve(import.meta.dirname, '../../plugins')
 const OWNER_JID = '5511999999999@s.whatsapp.net'
+const PEER_JID = '5511888888888@s.whatsapp.net'
 const DEVICE_JID = '6281234567890.0:1@s.whatsapp.net'
 const GROUP_JID = '120363000000000000@g.us'
 
@@ -43,22 +42,21 @@ function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 3_000))
 }
 
+
 describe('bot end-to-end over the fake WhatsApp wire', () => {
   let server: FakeWaServer
   let app: { start(): Promise<void>; stop(): Promise<void> } | undefined
   let tmp: string
-  let allowlist: GroupAllowlist
+  let settings: SettingsStore
 
   beforeEach(async () => {
     tmp = await mkdtemp(path.join(tmpdir(), 'zapo-e2e-'))
     server = await FakeWaServer.start()
-    allowlist = await createGroupAllowlist(path.join(tmp, 'allowed-groups.json'))
+    settings = await createSettingsStore(path.join(tmp, 'settings.json'))
   })
 
   afterEach(async () => {
-    setMenuSource(undefined)
-    setAccessAllowlist(undefined)
-    if (app !== undefined) await app.stop()
+        if (app !== undefined) await app.stop()
     await server.stop()
     await rm(tmp, { recursive: true, force: true })
   })
@@ -69,6 +67,7 @@ describe('bot end-to-end over the fake WhatsApp wire', () => {
    */
   async function pairedBot(): Promise<{
     peer: Awaited<ReturnType<FakeWaServer['createFakePeer']>>
+    pipeline: WaFakeConnectionPipeline
   }> {
     const config = loadConfig({
       BOT_PREFIXES: '.',
@@ -119,14 +118,14 @@ describe('bot end-to-end over the fake WhatsApp wire', () => {
       })
     })
 
-    const registry = await loadCommands(FEATURES_DIR, { extension: '.ts' })
+    const registry = await loadCommands(PLUGINS_DIR, { extension: '.ts' })
     app = createApp({
       config,
       logger: { info: () => {}, warn: () => {}, error: () => {} },
       store: { destroy: () => Promise.resolve() },
       client,
       registry,
-      allowlist,
+      settings,
     })
 
     await app.start()
@@ -135,7 +134,7 @@ describe('bot end-to-end over the fake WhatsApp wire', () => {
     // manager drives that reconnect (zapo-js never auto-reconnects).
     const pipeline = await loginPipeline.promise
     const peer = await server.createFakePeer({ jid: OWNER_JID }, pipeline)
-    return { peer }
+    return { peer, pipeline }
   }
 
   it('replies to .ping sent by the owner in a private chat', async () => {
@@ -147,12 +146,18 @@ describe('bot end-to-end over the fake WhatsApp wire', () => {
     expect(outbound.message?.conversation ?? '').toContain('Pong')
   }, 90_000)
 
-  it('stays silent in a group until the owner allowlists it', async () => {
-    const { peer } = await pairedBot()
+
+  it('applies a runtime mode change to group routing without restart', async () => {
+    const { peer, pipeline } = await pairedBot()
+    const nonOwner = await server.createFakePeer({ jid: PEER_JID }, pipeline)
 
     // The group must exist server-side, otherwise the outbound stanza has no
     // participant list to fan out to.
-    server.createFakeGroup({ groupJid: GROUP_JID, subject: 'Komunitas', participants: [peer] })
+    server.createFakeGroup({
+      groupJid: GROUP_JID,
+      subject: 'Komunitas',
+      participants: [peer, nonOwner],
+    })
 
     // Assert on captured stanzas rather than peer decryption: a group reply is
     // fanned out with sender-key distribution the fake peer does not bootstrap,
@@ -165,13 +170,13 @@ describe('bot end-to-end over the fake WhatsApp wire', () => {
       }
     })
 
-    await peer.sendGroupConversation(GROUP_JID, '.ping')
+    await nonOwner.sendGroupConversation(GROUP_JID, '.ping')
     await settle()
     expect(groupReplies).toEqual([])
 
-    await allowlist.add(GROUP_JID)
+    await settings.setMode('group-only')
 
-    await peer.sendGroupConversation(GROUP_JID, '.ping')
+    await nonOwner.sendGroupConversation(GROUP_JID, '.ping')
     await settle()
     expect(groupReplies).toEqual([GROUP_JID])
   }, 90_000)

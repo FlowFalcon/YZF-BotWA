@@ -1,113 +1,59 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALLOWLIST_COMMAND, evaluateAccess } from '../../src/access/access-policy.js'
+import { BOTMODE_COMMAND, evaluateAccess } from '../../lib/access/access-policy.js'
+import type { BotMode } from '../../lib/settings.js'
 
-const GROUP = '120363000000000000@g.us'
-const OTHER_GROUP = '120363999999999999@g.us'
-const PEER = '6289876543210@s.whatsapp.net'
-
-function allowlist(jids: readonly string[]): { has(jid: string): boolean } {
-  return { has: (jid) => jids.includes(jid) }
+interface MatrixRow {
+  readonly mode: BotMode
+  readonly isGroup: boolean
+  readonly isOwner: boolean
+  readonly allowed: boolean
 }
 
+const rows: readonly MatrixRow[] = [
+  { mode: 'public', isGroup: false, isOwner: false, allowed: true },
+  { mode: 'public', isGroup: false, isOwner: true, allowed: true },
+  { mode: 'public', isGroup: true, isOwner: false, allowed: true },
+  { mode: 'public', isGroup: true, isOwner: true, allowed: true },
+  { mode: 'group-only', isGroup: false, isOwner: false, allowed: false },
+  { mode: 'group-only', isGroup: false, isOwner: true, allowed: true },
+  { mode: 'group-only', isGroup: true, isOwner: false, allowed: true },
+  { mode: 'group-only', isGroup: true, isOwner: true, allowed: true },
+  { mode: 'owner-only', isGroup: false, isOwner: false, allowed: false },
+  { mode: 'owner-only', isGroup: false, isOwner: true, allowed: true },
+  { mode: 'owner-only', isGroup: true, isOwner: false, allowed: false },
+  { mode: 'owner-only', isGroup: true, isOwner: true, allowed: true },
+]
+
 describe('evaluateAccess', () => {
-  it('allows the owner in a private chat', () => {
+  it.each(rows)('$mode group=$isGroup owner=$isOwner -> $allowed', (row) => {
     const decision = evaluateAccess({
-      chatJid: PEER,
-      isGroup: false,
-      isOwner: true,
+      mode: row.mode,
+      isGroup: row.isGroup,
+      isOwner: row.isOwner,
       commandName: 'ping',
-      allowlist: allowlist([]),
     })
 
-    expect(decision.allowed).toBe(true)
+    expect(decision.allowed).toBe(row.allowed)
   })
 
-  it('denies a non-owner in a private chat', () => {
-    const decision = evaluateAccess({
-      chatJid: PEER,
-      isGroup: false,
-      isOwner: false,
-      commandName: 'ping',
-      allowlist: allowlist([]),
-    })
+  it.each(['public', 'group-only', 'owner-only'] as const)(
+    'keeps the owner botmode emergency path open in %s mode',
+    (mode) => {
+      expect(
+        evaluateAccess({ mode, isGroup: false, isOwner: true, commandName: BOTMODE_COMMAND }),
+      ).toEqual({ allowed: true })
+    },
+  )
 
-    expect(decision).toEqual({ allowed: false, reason: 'private_not_owner' })
-  })
-
-  it('allows a non-owner in an allowlisted group', () => {
-    const decision = evaluateAccess({
-      chatJid: GROUP,
-      isGroup: true,
-      isOwner: false,
-      commandName: 'ping',
-      allowlist: allowlist([GROUP]),
-    })
-
-    expect(decision.allowed).toBe(true)
-  })
-
-  it('denies a non-owner in a group that is not allowlisted', () => {
-    const decision = evaluateAccess({
-      chatJid: OTHER_GROUP,
-      isGroup: true,
-      isOwner: false,
-      commandName: 'ping',
-      allowlist: allowlist([GROUP]),
-    })
-
-    expect(decision).toEqual({ allowed: false, reason: 'group_not_allowlisted' })
-  })
-
-  // The whole point of private mode: a community group must see nothing, not
-  // even when the owner types in it.
-  it('denies the owner in a group that is not allowlisted', () => {
-    const decision = evaluateAccess({
-      chatJid: OTHER_GROUP,
-      isGroup: true,
-      isOwner: true,
-      commandName: 'ping',
-      allowlist: allowlist([]),
-    })
-
-    expect(decision).toEqual({ allowed: false, reason: 'group_not_allowlisted' })
-  })
-
-  // Otherwise the owner could never enable a group from inside it: the group JID
-  // is not visible from a private chat.
-  it('allows the owner to run the allowlist command in a group that is not allowlisted', () => {
-    const decision = evaluateAccess({
-      chatJid: OTHER_GROUP,
-      isGroup: true,
-      isOwner: true,
-      commandName: ALLOWLIST_COMMAND,
-      allowlist: allowlist([]),
-    })
-
-    expect(decision.allowed).toBe(true)
-  })
-
-  it('denies a non-owner running the allowlist command in a group that is not allowlisted', () => {
-    const decision = evaluateAccess({
-      chatJid: OTHER_GROUP,
-      isGroup: true,
-      isOwner: false,
-      commandName: ALLOWLIST_COMMAND,
-      allowlist: allowlist([]),
-    })
-
-    expect(decision).toEqual({ allowed: false, reason: 'group_not_allowlisted' })
-  })
-
-  it('never lets an allowlisted jid grant access to a private chat', () => {
-    const decision = evaluateAccess({
-      chatJid: PEER,
-      isGroup: false,
-      isOwner: false,
-      commandName: 'ping',
-      allowlist: allowlist([PEER]),
-    })
-
-    expect(decision.allowed).toBe(false)
+  it('does not open the emergency path to non-owners', () => {
+    expect(
+      evaluateAccess({
+        mode: 'owner-only',
+        isGroup: false,
+        isOwner: false,
+        commandName: BOTMODE_COMMAND,
+      }),
+    ).toEqual({ allowed: false, reason: 'owner_only' })
   })
 })

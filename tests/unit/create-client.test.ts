@@ -5,10 +5,10 @@ import { join } from 'node:path'
 import { createNoopLogger, WaClient, type WaStore } from 'zapo-js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import type { BotConfig } from '../../src/config.js'
-import type { ConnectionClient } from '../../src/client/connection-manager.js'
-import { createProtocolStore } from '../../src/client/store.js'
-import { createClient } from '../../src/client/create-client.js'
+import type { BotConfig } from '../../lib/config.js'
+import type { ConnectionClient } from '../../lib/client/connection-manager.js'
+import { createProtocolStore } from '../../lib/client/store.js'
+import { createClient } from '../../lib/client/create-client.js'
 
 let workDir: string
 let store: WaStore
@@ -16,9 +16,11 @@ let store: WaStore
 function createConfig(overrides: Partial<BotConfig> = {}): BotConfig {
   return {
     prefixes: ['.'],
+    ownerNumber: '628123456789',
     authMethod: 'auto',
     sessionId: 'test-session',
     storePath: join(workDir, 'state.sqlite'),
+    menuThumbnailPath: join(workDir, 'assets', 'menu-thumbnail.jpg'),
     logLevel: 'info',
     nodeEnv: 'test',
     isProduction: false,

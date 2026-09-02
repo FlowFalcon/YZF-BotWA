@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { createFloodGate } from '../../src/commands/middleware/flood.js'
-import type { Clock } from '../../src/shared/clock.js'
+import { createFloodGate } from '../../lib/commands/middleware/flood.js'
+import type { Clock } from '../../lib/shared/clock.js'
 
 const SENDER = '62800@s.whatsapp.net'
 

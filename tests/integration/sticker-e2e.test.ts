@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Readable } from 'node:stream'
-import { createStickerCommand } from '../../src/features/media/sticker.js'
-import { encodeSticker } from '../../src/media/ffmpeg.js'
-import type { CommandContext } from '../../src/commands/command.js'
-import type { MediaReply } from '../../src/media/types.js'
+import { createStickerCommand } from '../../plugins/sticker/sticker.js'
+import { encodeSticker } from '../../lib/media/ffmpeg.js'
+import type { CommandContext } from '../../lib/commands/command.js'
+import type { MediaReply } from '../../lib/media/types.js'
 import { sampleMp4, samplePng } from '../support/media-fixtures.js'
 
 const png = await samplePng()
