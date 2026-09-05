@@ -21,6 +21,9 @@ import { commandLogFields } from './shared/logger.js'
 import { systemClock } from './shared/clock.js'
 import { systemRandom } from './shared/random.js'
 import type { ProfileBrandingService } from './profile/branding.js'
+import type { MenuMediaService } from './messages/menu-media.js'
+import type { GroupGateway } from './group/gateway.js'
+import type { UserStore } from './users/store.js'
 
 /** Pipeline limits. Not configurable until a real deployment needs different numbers. */
 const FLOOD_LIMIT = 5
@@ -72,6 +75,11 @@ export interface AppDependencies {
   readonly registry: CommandRegistry
   readonly settings: SettingsStore
   readonly profile?: ProfileBrandingService
+  readonly menuMedia?: MenuMediaService
+  readonly group?: GroupGateway
+  readonly users?: UserStore
+  /** Fungsi karena JID bot baru diketahui setelah pairing selesai. */
+  readonly botJids?: () => readonly string[]
   readonly pluginWatcher?: { close(): Promise<void> }
 }
 
@@ -85,7 +93,7 @@ export interface App {
  * connect at import time — `index.ts` owns those so this stays testable.
  */
 export function createApp(deps: AppDependencies): App {
-  const { config, logger, store, client, registry, settings, profile, pluginWatcher } = deps
+  const { config, logger, store, client, registry, settings, profile, menuMedia, group, users, botJids, pluginWatcher } = deps
 
   const reporter: RouterReporter = {
     command: (report) => {
@@ -107,7 +115,11 @@ export function createApp(deps: AppDependencies): App {
     reporter,
     settings,
     menuThumbnailPath: config.menuThumbnailPath,
+    ...(menuMedia === undefined ? {} : { menuMedia }),
     ...(profile === undefined ? {} : { profile }),
+    ...(group === undefined ? {} : { group }),
+    ...(users === undefined ? {} : { users }),
+    ...(botJids === undefined ? {} : { botJids }),
     ...(config.ownerNumber === undefined ? {} : { ownerNumber: config.ownerNumber }),
   })
 

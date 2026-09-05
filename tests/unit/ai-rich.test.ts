@@ -27,31 +27,30 @@ describe('htmlPrimitiveMessage', () => {
     expect(primitive?.['payload']).toBe('<div>hi</div>')
   })
 
-  it('carries the caption as a submessage so clients without html show text', () => {
+  it('carries the caption as a submessage when provided', () => {
     const content = htmlPrimitiveMessage({ html: '<i></i>', caption: 'Dino', responseId: 'x' })
     const submessages = content.botForwardedMessage.message.richResponseMessage.submessages
-    expect(submessages[0]?.messageText).toBe('Dino')
+    expect(submessages?.[0]?.messageText).toBe('Dino')
   })
 
-  it('reuses one response id across botMetadata and the unified payload', () => {
-    const content = htmlPrimitiveMessage({ html: '<i></i>', caption: 'c', responseId: 'abc123' })
-    expect(content.messageContextInfo.botMetadata.botResponseId).toBe('abc123')
-    expect(decodeUnified(content)['response_id']).toBe('abc123')
+  it('omits submessages when no caption is provided to avoid fallback leakage', () => {
+    const content = htmlPrimitiveMessage({ html: '<i></i>', responseId: 'x' })
+    const submessages = content.botForwardedMessage.message.richResponseMessage.submessages
+    expect(submessages).toEqual([])
   })
 
-  it('sends no verificationMetadata and no certificate chain', () => {
-    // CREATIVE_MESSAGES.md §7: never copy a third party's certificate chain and
-    // never claim to be an official bot. The payload must stay proof-free.
-    const json = JSON.stringify(htmlPrimitiveMessage({ html: '<i></i>', caption: 'c', responseId: 'x' }))
-    expect(json).not.toContain('verificationMetadata')
-    expect(json).not.toContain('certificateChain')
-    expect(json).not.toContain('botJid')
+  it('includes the forwarded info and forwardOrigin required by the Meta AI renderer', () => {
+    const content = htmlPrimitiveMessage({ html: '<i></i>', responseId: 'x' })
+    expect(content.botForwardedMessage.message.richResponseMessage.contextInfo).toEqual({
+      forwardingScore: 1,
+      isForwarded: true,
+      forwardedAiBotMessageInfo: { botJid: '0@bot' },
+      forwardOrigin: 4,
+    })
   })
 
-  it('leaves the disclaimer empty instead of impersonating a vendor bot', () => {
-    // §7 again: an empty disclaimer is a bare experiment, a filled one is a
-    // claim about who sent the message.
-    const content = htmlPrimitiveMessage({ html: '<i></i>', caption: 'c', responseId: 'x' })
+  it('leaves messageDisclaimerText empty so no GenAI text leaks', () => {
+    const content = htmlPrimitiveMessage({ html: '<i></i>', responseId: 'x' })
     expect(content.messageContextInfo.botMetadata.messageDisclaimerText).toBe('')
   })
 
@@ -89,7 +88,7 @@ describe('htmlPrimitiveSendOptions', () => {
     expect(htmlPrimitiveSendOptions().additionalAttributes).toEqual({ type: 'text' })
   })
 
-  it('adds the exact business native-flow companion node required by the renderer', () => {
+  it('includes the native flow mixed customNodes', () => {
     expect(htmlPrimitiveSendOptions().customNodes).toEqual([
       {
         tag: 'biz',

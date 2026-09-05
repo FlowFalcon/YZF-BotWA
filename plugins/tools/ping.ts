@@ -1,6 +1,7 @@
 import type { Command } from '../../lib/commands/command.js'
-import { brandingCard } from '../../lib/messages/branding.js'
-import { externalAdReplyText } from '../../lib/messages/rich.js'
+import { compactCardText } from '../../lib/messages/rich.js'
+
+const REPO_URL = 'https://github.com/FlowFalcon/YZF-BotWA'
 
 const command = {
   name: 'ping',
@@ -12,12 +13,22 @@ const command = {
     // Clamp: clock non-monotonic bisa membuat selisih negatif.
     const elapsedMs = Math.max(0, ctx.now() - ctx.receivedAtMs)
     const text = `Pong! Bot aktif. Waktu proses: ${String(elapsedMs)} ms.`
-    const card = brandingCard(ctx.menuThumbnailPath, 'Bot aktif')
-    if (card === undefined) {
+
+    // Kartu kecil: inline thumbnail tanpa HQ upload. Tanpa thumbnail, teks biasa.
+    const thumbnail = await ctx.menuMedia?.compact()
+    if (thumbnail === undefined) {
       await ctx.reply(text)
       return
     }
-    await ctx.replyContent(externalAdReplyText({ ...card, text }))
+    await ctx.replyContent(
+      compactCardText({
+        text,
+        url: REPO_URL,
+        title: 'YZF-BotWA',
+        description: 'Bot aktif',
+        thumbnail,
+      }),
+    )
   },
 } satisfies Command
 

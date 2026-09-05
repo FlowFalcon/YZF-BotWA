@@ -15,6 +15,9 @@ import { extractMessageText } from './extract-text.js'
 import { evaluateAccess } from '../access/access-policy.js'
 import type { SettingsView } from '../settings.js'
 import type { ProfileBrandingService } from '../profile/branding.js'
+import type { MenuMediaService } from './menu-media.js'
+import type { GroupGateway } from '../group/gateway.js'
+import type { UserStore } from '../users/store.js'
 
 export type ChatKind = 'group' | 'private'
 export type RouteOutcome = 'ok' | 'error' | 'denied' | 'rate_limited'
@@ -57,6 +60,19 @@ export interface MessageRouterOptions {
   readonly settings: SettingsView
   readonly profile?: ProfileBrandingService
   readonly menuThumbnailPath: string
+  readonly menuMedia?: MenuMediaService
+  /** Gateway grup; command grup menolak sendiri bila tidak tersedia. */
+  readonly group?: GroupGateway
+  /**
+   * Daftar blokir. Router hanya membaca; command owner yang menulis menerima
+   * `UserStore` penuh lewat context.
+   */
+  readonly users?: UserStore
+  /**
+   * Semua JID akun bot (PN dan LID). Fungsi, bukan array: kredensial baru ada
+   * setelah `connect()`, sementara router dibangun sebelum itu.
+   */
+  readonly botJids?: () => readonly string[]
 }
 
 export type MessageRouter = (event: WaIncomingMessageEvent) => Promise<void>
@@ -93,7 +109,11 @@ export function createMessageRouter(options: MessageRouterOptions): MessageRoute
       settings: options.settings,
       commands: options.registry,
       menuThumbnailPath: options.menuThumbnailPath,
+      ...(options.menuMedia === undefined ? {} : { menuMedia: options.menuMedia }),
       ...(options.profile === undefined ? {} : { profile: options.profile }),
+      ...(options.group === undefined ? {} : { group: options.group }),
+      ...(options.users === undefined ? {} : { users: options.users }),
+      ...(options.botJids === undefined ? {} : { botJids: options.botJids() }),
       ...(options.ownerNumber === undefined ? {} : { ownerNumber: options.ownerNumber }),
     })
 
@@ -105,6 +125,19 @@ export function createMessageRouter(options: MessageRouterOptions): MessageRoute
         durationMs: options.clock.now() - startedAtMs,
         outcome,
       })
+    }
+
+    // Ban diperiksa sebelum akses mode dan sebelum lookup registry: pihak yang
+    // diblokir tidak boleh memicu efek apa pun, termasuk memeriksa nama command.
+    // Owner dikecualikan supaya tidak bisa mengurung diri sendiri.
+    if (!context.isOwner && options.users !== undefined) {
+      const bannedSender =
+        options.users.isBannedUser(context.senderJid) ||
+        (context.senderAltJid !== undefined && options.users.isBannedUser(context.senderAltJid))
+      if (bannedSender || options.users.isBannedChat(context.chatJid)) {
+        report(undefined, 'denied')
+        return
+      }
     }
 
     const access = evaluateAccess({

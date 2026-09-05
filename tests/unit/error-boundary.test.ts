@@ -6,30 +6,19 @@ import {
   runWithErrorBoundary,
   type CommandErrorReport,
 } from '../../lib/commands/middleware/error-boundary.js'
+import { fakeContext } from '../fixtures/context.js'
 
 function buildContext(overrides: Partial<CommandContext> = {}): CommandContext {
-  return {
+  return fakeContext({
     chatJid: '62800-1@g.us',
     senderJid: '62800@s.whatsapp.net',
     isGroup: true,
-    isOwner: false,
-    prefix: '.',
     commandName: 'dice',
-    args: [],
-    text: '',
     receivedAtMs: 1_000,
     now: () => 1_050,
     random: () => 0.5,
-    reply: () => Promise.resolve(),
-    replyContent: () => Promise.resolve(),
-    replyMedia: () => Promise.resolve(),
-    replyAIRich: () => Promise.resolve(),
-    settings: { getMode: () => 'owner-only' },
-    commands: { list: () => [] },
-    menuThumbnailPath: '.auth/assets/menu-thumbnail.jpg',
-    react: () => Promise.resolve(),
     ...overrides,
-  }
+  })
 }
 
 function buildCommand(run: Command['run']): Command {

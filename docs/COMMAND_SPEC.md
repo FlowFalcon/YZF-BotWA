@@ -39,7 +39,7 @@ Yang perlu diketahui saat menulis command:
 - Identitas: `chatJid`, `senderJid`, `senderNumber`, `pushName`, `isGroup`, `isOwner`.
 - Input: `prefix`, `commandName`, `args`, `text`, dan `message` untuk lampiran.
 - Waktu dan acak: `receivedAtMs`, `now()`, `random()` — jangan pakai `Date.now()` atau `Math.random()` langsung agar test tetap deterministik.
-- Output: `reply` (teks), `replyContent` (native flow atau kartu `externalAdReply`), `replyMedia` (sticker), `replyAIRich` (AIRich HTML), `react`.
+- Output: `reply` (teks), `Reply` (kartu link-preview), `replyContent` (native flow), `replyMedia` (sticker), `replyImage` (gambar), `replyAIRich` (AIRich HTML), `react`.
 - Read-only: `settings` untuk mode aktif, `commands` untuk daftar command, `menuThumbnailPath` untuk aset branding.
 
 Command tidak menerima raw event: normalisasi identitas dan pemilihan target reply dilakukan sekali di `lib/messages/context.ts`.
@@ -96,59 +96,23 @@ Tidak boleh mengubah urutan ini tanpa memperbarui PRD, arsitektur, test, dan dec
 
 ## 7. Surface command v0.0.1
 
-Registry berisi tepat 12 command: `botmode`, `delpp`, `delthumbnail`, `dino`, `menu`, `ownermenu`, `ping`, `setabout`, `setname`, `setpp`, `setthumbnail`, `sticker`.
+Registry berisi command berikut:
 
-### `menu`
+- Tools: `menu`, `ping`, `qrcode`, `ssweb`, `hd`.
+- Sticker: `sticker`.
+- Games: `dino`.
+- Group: `groupmenu`, `add`, `kick`, `promote`, `demote`, `hidetag`, `tagall`, `gcname`, `gcdesc`, `linkgroup`, `group`.
+- Owner: `ownermenu`, `botmode`, `ban`, `unban`, `banchat`, `unbanchat`, `banlist`, `setname`, `setabout`, `setpp`, `delpp`, `setthumbnail`, `delthumbnail`.
 
-- Alias: `help`.
-- Menampilkan branding `YZF-BotWA` dan command canonical yang boleh dilihat caller.
-- Header memuat nama, nomor, peran, jenis chat, mode aktif, prefix, dan uptime.
-- Tombol native hanya menjadi shortcut tindakan yang sudah bermakna: Ping dan Dino Run, ditambah Owner Menu khusus owner.
-- Command yang membutuhkan teks atau media tidak dijadikan tombol; keduanya tetap muncul sebagai daftar.
-- Thumbnail dikirim sebagai kartu `externalAdReply`, bukan header interactive (D-019).
-- Menggunakan prefix aktif dari context dan registry read-only.
+`menu`, `groupmenu`, dan `ownermenu` dikirim sebagai teks berkategori tanpa button.
+`ctx.reply` mengirim teks polos; `ctx.Reply` mengirim kartu link-preview dan fallback
+ke teks bila media tidak tersedia. Command yang memerlukan teks atau media tidak
+diwakili button kosong.
 
-### `ping`
+Command grup memerlukan admin pengirim dan admin bot. Ban diperiksa sebelum access
+mode dan registry lookup; owner dikecualikan agar tidak dapat mengunci dirinya.
 
-- Alias: `p`.
-- Menghitung latency dari `now() - receivedAtMs`.
-- Output tidak mengklaim network latency WhatsApp.
-- Membawa kartu `externalAdReply` kecil bila thumbnail terpasang; tanpa thumbnail menjadi teks biasa.
-
-### `sticker`
-
-- Mengubah foto/video/GIF yang didukung menjadi sticker.
-- Tetap menjadi fitur inti.
-
-### `dino`
-
-- Alias: `dinorun`.
-- Mengirim renderer HTML AIRich; renderer lane emoji lama tidak tersedia.
-
-### `ownermenu`
-
-- Owner-only.
-- Mendaftar command profil/branding beserta usage-nya sebagai teks, karena semuanya butuh input.
-- Tombol hanya `Bot Mode` dan `Main Menu` — dua aksi yang selesai dengan satu tap.
-
-### `botmode`
-
-- Owner-only dan selalu menjadi jalur kontrol darurat owner.
-- Tanpa argumen menampilkan mode aktif, penjelasan tiap mode, tombol untuk mode yang belum aktif, dan tombol `Owner Menu`. Mode yang sedang aktif tidak dijadikan tombol karena tap-nya tidak mengubah apa pun.
-- Argumen valid disimpan atomik dan langsung berlaku tanpa restart.
-- Argumen invalid tidak mengubah settings.
-
-### Profil dan branding owner
-
-- `.setname <nama>` mengubah push name; nama wajib 1–25 karakter tanpa karakter kontrol.
-- `.setpp` memakai gambar langsung/reply JPEG, PNG, atau WebP maksimal 8 MiB; gambar di-center-crop menjadi JPEG 640×640 sebelum dikirim ke profile coordinator.
-- `.delpp` hanya menghapus foto profil WhatsApp.
-- `.setabout <teks>` mengubah About; teks wajib 1–139 karakter tanpa karakter kontrol.
-- `.setthumbnail` memakai batas media yang sama dan menyimpan JPEG menu secara atomik di `assets/menu-thumbnail.jpg` di samping `BOT_STORE_PATH`, dengan direktori `0700` dan file `0600`.
-- `.delthumbnail` hanya menghapus thumbnail khusus sehingga menu kembali ke aset default.
-- Keenam command bersifat owner-only. Foto profil WhatsApp dan thumbnail menu tidak saling mengubah.
-
-Command `.raw`, `.v4`, filler lama, `.panel`, dan `.access` tidak terdaftar.
+Command `.raw`, `.v4`, `.premium`, dan eksekusi source dari chat tidak tersedia.
 
 ## 8. Contoh module
 

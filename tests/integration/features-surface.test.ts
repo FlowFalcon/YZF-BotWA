@@ -10,20 +10,39 @@ describe('public command surface', () => {
     const registry = await loadCommands(PLUGINS_DIR, { extension: '.ts' })
 
     expect(registry.list().map((command) => command.name).sort()).toEqual([
+      'add',
+      'ban',
+      'banchat',
+      'banlist',
       'botmode',
       'delpp',
       'delthumbnail',
+      'demote',
       'dino',
+      'gcdesc',
+      'gcname',
+      'group',
+      'groupmenu',
+      'hd',
+      'hidetag',
+      'kick',
+      'linkgroup',
       'menu',
       'ownermenu',
       'ping',
+      'promote',
+      'qrcode',
       'setabout',
       'setname',
       'setpp',
       'setthumbnail',
+      'ssweb',
       'sticker',
+      'tagall',
+      'unban',
+      'unbanchat',
     ])
-    for (const removed of ['v4', 'raw', 'coinflip', 'dice', 'rate', 'eightball', 'tebakangka', 'suit', 'panel', 'access']) {
+    for (const removed of ['v4', 'raw', 'coinflip', 'dice', 'rate', 'eightball', 'tebakangka', 'suit', 'panel', 'access', 'premium']) {
       expect(registry.get(removed)).toBeUndefined()
     }
   })

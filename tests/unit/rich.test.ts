@@ -1,73 +1,45 @@
 import { describe, expect, it } from 'vitest'
 import {
-  externalAdReplyText,
+  compactCardText,
   readRichReplyId,
   richButtons,
   richList,
 } from '../../lib/messages/rich.js'
+import type { MenuHeader } from '../../lib/messages/menu-media.js'
 
-describe('externalAdReplyText', () => {
-  it('builds a typed text message with an in-memory thumbnail', () => {
-    const thumbnail = new Uint8Array([1, 2, 3])
-    const content = externalAdReplyText({
-      text: 'Bot aktif.',
-      title: 'YZF-BotWA',
-      body: 'WhatsApp Bot Modular',
-      sourceUrl: 'https://github.com/',
-      thumbnail,
-    })
-
-    expect(content).toEqual({
-      type: 'text',
-      text: 'Bot aktif.',
-      contextInfo: {
-        raw: {
-          externalAdReply: {
-            title: 'YZF-BotWA',
-            body: 'WhatsApp Bot Modular',
-            sourceUrl: 'https://github.com/',
-            thumbnail,
-            mediaType: 1,
-            renderLargerThumbnail: false,
-            showAdAttribution: false,
-          },
-        },
-      },
-    })
-  })
-
-  it('omits optional fields instead of emitting undefined proto values', () => {
-    expect(externalAdReplyText({ text: 'Pong', title: 'YZF-BotWA' })).toEqual({
-      type: 'text',
-      text: 'Pong',
-      contextInfo: {
-        raw: {
-          externalAdReply: {
-            title: 'YZF-BotWA',
-            mediaType: 1,
-            renderLargerThumbnail: false,
-            showAdAttribution: false,
-          },
-        },
-      },
-    })
-  })
-})
+const HEADER: MenuHeader = {
+  title: 'YZF-BotWA',
+  subtitle: 'WhatsApp bot modular',
+  hasMediaAttachment: true,
+  imageMessage: {
+    url: 'https://mmg.whatsapp.net/x',
+    directPath: '/o1/v/t24/x',
+    mediaKey: new Uint8Array([1, 2]),
+    fileSha256: new Uint8Array([3]),
+    fileEncSha256: new Uint8Array([4]),
+    fileLength: 5_000,
+    mediaKeyTimestamp: 1_700_000_000,
+    mimetype: 'image/jpeg',
+    width: 720,
+    height: 720,
+    jpegThumbnail: new Uint8Array([5, 6]),
+  },
+}
 
 describe('richButtons', () => {
   it('builds a native-flow quick reply payload', () => {
     const content = richButtons({
       text: 'Pilih menu',
-      footer: 'fun-bot',
+      footer: 'YZF-BotWA',
       buttons: [
         { text: 'Ping', id: '.ping' },
-        { text: 'Dadu', id: '.dice' },
+        { text: 'Dino Run', id: '.dino' },
       ],
     })
 
     const buttons = content.interactiveMessage.nativeFlowMessage.buttons
     expect(content.interactiveMessage.body.text).toBe('Pilih menu')
-    expect(content.interactiveMessage.footer?.text).toBe('fun-bot')
+    expect(content.interactiveMessage.footer?.text).toBe('YZF-BotWA')
     expect(buttons).toHaveLength(2)
     expect(buttons[0]?.name).toBe('quick_reply')
     expect(JSON.parse(buttons[0]?.buttonParamsJson ?? '{}')).toEqual({
@@ -85,34 +57,87 @@ describe('richButtons', () => {
     expect(() => richButtons({ text: 'x', buttons: [] })).toThrow(/at least one button/)
   })
 
-  it('carries a thumbnail through externalAdReply instead of a native header', () => {
-    const thumbnail = new Uint8Array([9, 8, 7])
+  it('carries the image through the interactive header, the only path that renders on Phone and Web', () => {
     const content = richButtons({
       text: 'Menu',
+      header: HEADER,
       buttons: [{ text: 'Ping', id: '.ping' }],
-      externalAdReply: {
-        title: 'YZF-BotWA',
-        body: 'WhatsApp Bot Modular',
-        thumbnail,
-        renderLargerThumbnail: true,
-      },
     })
 
-    expect(content.interactiveMessage.contextInfo).toEqual({
-      externalAdReply: {
-        title: 'YZF-BotWA',
-        body: 'WhatsApp Bot Modular',
-        thumbnail,
-        mediaType: 1,
-        renderLargerThumbnail: true,
-        showAdAttribution: false,
-      },
-    })
+    expect(content.interactiveMessage.header).toEqual(HEADER)
   })
 
-  it('omits contextInfo when no ad card is requested', () => {
+  it('omits the header when no thumbnail is installed', () => {
     const content = richButtons({ text: 'x', buttons: [{ text: 'a', id: '.a' }] })
-    expect(content.interactiveMessage.contextInfo).toBeUndefined()
+    expect(content.interactiveMessage.header).toBeUndefined()
+  })
+
+  it('never emits contextInfo: externalAdReply and fake quotes do not render', () => {
+    const content = richButtons({ text: 'x', header: HEADER, buttons: [{ text: 'a', id: '.a' }] })
+    expect(content.interactiveMessage).not.toHaveProperty('contextInfo')
+  })
+})
+
+describe('compactCardText', () => {
+  const thumbnail = { bytes: new Uint8Array([9, 8, 7]), width: 240, height: 201 }
+
+  it('builds a raw extendedText card with an inline thumbnail and no HQ upload fields', () => {
+    const content = compactCardText({
+      text: 'Pong! Bot aktif.',
+      url: 'https://github.com/FlowFalcon/YZF-BotWA',
+      title: 'YZF-BotWA',
+      description: 'WhatsApp bot modular',
+      thumbnail,
+    })
+
+    const message = content.extendedTextMessage
+    expect(message.matchedText).toBe('https://github.com/FlowFalcon/YZF-BotWA')
+    expect(message.title).toBe('YZF-BotWA')
+    expect(message.description).toBe('WhatsApp bot modular')
+    expect(message.previewType).toBe(0)
+    expect(message.jpegThumbnail).toEqual(thumbnail.bytes)
+    expect(message.thumbnailWidth).toBe(240)
+    expect(message.thumbnailHeight).toBe(201)
+    // The HQ upload fields are what force the large card; the compact card must not carry them.
+    expect(message).not.toHaveProperty('thumbnailDirectPath')
+    expect(message).not.toHaveProperty('mediaKey')
+  })
+
+  it('keeps the url in the text (the client drops the card without it) but hides it behind padding', () => {
+    const content = compactCardText({
+      text: 'Pong!',
+      url: 'https://example.com/repo',
+      title: 'YZF-BotWA',
+      thumbnail,
+    })
+
+    const { text } = content.extendedTextMessage
+    expect(text.startsWith('https://example.com/repo')).toBe(true)
+    expect(text).toContain('Pong!')
+    // Zero-width padding pushes the url off-screen without deleting it.
+    expect(text).toMatch(/\u200B{100,}/)
+  })
+
+  it('omits the description instead of emitting an empty proto field', () => {
+    const content = compactCardText({
+      text: 'x',
+      url: 'https://example.com/',
+      title: 'YZF-BotWA',
+      thumbnail,
+    })
+
+    expect(content.extendedTextMessage).not.toHaveProperty('description')
+  })
+
+  it('rejects a thumbnail over the 64 KiB inline cap, which zapo would silently drop', () => {
+    expect(() =>
+      compactCardText({
+        text: 'x',
+        url: 'https://example.com/',
+        title: 'YZF-BotWA',
+        thumbnail: { bytes: new Uint8Array(64 * 1024 + 1), width: 240, height: 240 },
+      }),
+    ).toThrow(/64 KiB/)
   })
 })
 

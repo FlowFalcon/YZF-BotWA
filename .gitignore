@@ -16,8 +16,9 @@ qr.png
 tmp/
 .runtime/
 
-# Aset branding sumber — ditahan dari publikasi sementara. Tidak dipakai runtime:
-# thumbnail menu dibaca dari `menuThumbnailPath` (`<BOT_STORE_PATH>/assets/menu-thumbnail.jpg`).
+# Aset branding sumber — ditahan dari publikasi sementara. Runtime memakainya
+# (`mn.png` = header menu, `rp.png` = kartu reply) tetapi menangani ketiadaannya:
+# tanpa file ini menu dan reply terkirim sebagai teks polos.
 lib/images/*.png
 
 # Memori kerja agent — lokal saja, ditahan dari publikasi.

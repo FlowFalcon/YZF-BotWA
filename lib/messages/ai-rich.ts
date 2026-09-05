@@ -1,7 +1,4 @@
-/**
- * The typename WhatsApp's client maps to its HTML renderer. Discovered from a
- * third-party payload; the string itself is an identifier, not copied code.
- */
+/** WhatsApp typename for the HTML renderer. */
 export const HTML_PRIMITIVE_TYPENAME = 'GenAIaeacdsnwHtmlPrimitive'
 
 /** Ceiling on the HTML payload. A half-sent page renders as a blank card. */
@@ -9,12 +6,12 @@ const MAX_HTML_BYTES = 128 * 1024
 
 export interface HtmlPrimitiveInput {
   readonly html: string
-  /** Shown by clients that cannot render the primitive. */
-  readonly caption: string
+  /** Shown by clients that cannot render the primitive (optional). */
+  readonly caption?: string
   readonly responseId: string
 }
 
-/** Structural proto payload returned by the typed AIRich builders in this module. */
+/** Structural proto payload returned by the typed AIRich builder in this module. */
 export type AIRichContent = HtmlPrimitiveContent
 
 export interface AIRichNode {
@@ -30,64 +27,70 @@ export interface AIRichSendOptions {
   readonly editKey?: { readonly id: string }
 }
 
-/**
- * One renderer entry. Each renderer decides how it serializes into the
- * unified-response payload; the wrapper below stays the single owner of the
- * surrounding `botForwardedMessage` shape.
- */
-export type RichSection =
-  | {
-      readonly kind: 'html'
-      readonly html: string
-      readonly caption: string
+export type HtmlPrimitiveContent = {
+  readonly messageContextInfo: {
+    readonly deviceListMetadata: Record<string, never>
+    readonly deviceListMetadataVersion: number
+    readonly botMetadata: {
+      readonly messageDisclaimerText: string
+      readonly richResponseSourcesMetadata?: { readonly sources?: never[] }
+      readonly botResponseId: string
     }
-  | {
-      readonly kind: 'v4'
-      /** Pre-built V4 unified-response payload (already JSON-encoded). */
-      readonly payload: Uint8Array
-      /** Caption / fallback submessage rendered when the primitive is unavailable. */
-      readonly caption: string
+  }
+  readonly botForwardedMessage: {
+    readonly message: {
+      readonly richResponseMessage: {
+        readonly messageType: number
+        readonly submessages: { readonly messageType: number; readonly messageText: string }[]
+        readonly unifiedResponse: { readonly data: Uint8Array }
+        readonly contextInfo?: {
+          readonly forwardingScore: number
+          readonly isForwarded: boolean
+          readonly forwardedAiBotMessageInfo: { readonly botJid: string }
+          readonly forwardOrigin: number
+        }
+      }
     }
-
-export interface BuildRichResponseMessageInput {
-  readonly responseId: string
-  readonly disclaimer: string
-  readonly sections: readonly RichSection[]
+  }
 }
 
 /**
- * Shared builder for every AIRich renderer (HTML primitives, V4 typed sections,
- * future primitives). Each section contributes one `unifiedResponse.data`
- * entry; the surrounding `botForwardedMessage` shape is owned here so the
- * proof-free wire contract stays in one place.
+ * Wraps HTML in the `botForwardedMessage` shape stock clients render:
+ * - primitive `__typename`: GenAIaeacdsnwHtmlPrimitive
+ * - view_model `__typename`: GenAISingleLayoutViewModel
+ * - `messageDisclaimerText` left empty so no GenAI wording leaks into the bubble
+ * - contextInfo with isForwarded, forwardOrigin 4 and a neutral `0@bot`
+ *
+ * No verification metadata and no impersonated bot jid: the bot never claims to
+ * be Meta AI.
  */
-export function buildRichResponseMessage(input: BuildRichResponseMessageInput): AIRichContent {
-  const unifiedSections = input.sections.map((section) => {
-    if (section.kind === 'html') {
-      return {
-        view_model: {
-          primitive: { __typename: HTML_PRIMITIVE_TYPENAME, payload: section.html },
-        },
-      }
-    }
-    return JSON.parse(new TextDecoder().decode(section.payload)) as { response_id: string; sections: readonly unknown[] }
-  }).flatMap((entry) => ('sections' in entry ? entry.sections : [entry]))
+export function htmlPrimitiveMessage(input: HtmlPrimitiveInput): HtmlPrimitiveContent {
+  const encodedHtml = new TextEncoder().encode(input.html)
+  if (encodedHtml.byteLength > MAX_HTML_BYTES) {
+    throw new Error(`html payload too large: ${String(encodedHtml.byteLength)} bytes`)
+  }
 
   const data = new TextEncoder().encode(
     JSON.stringify({
       response_id: input.responseId,
-      sections: unifiedSections,
+      sections: [
+        {
+          view_model: {
+            primitive: { __typename: HTML_PRIMITIVE_TYPENAME, payload: input.html },
+            __typename: 'GenAISingleLayoutViewModel',
+          },
+        },
+      ],
     }),
   )
-
-  const fallback = input.sections.find((section) => section.caption.length > 0)
 
   return {
     messageContextInfo: {
       deviceListMetadata: {},
       deviceListMetadataVersion: 2,
       botMetadata: {
-        messageDisclaimerText: input.disclaimer,
+        messageDisclaimerText: '',
+        richResponseSourcesMetadata: { sources: [] },
         botResponseId: input.responseId,
       },
     },
@@ -95,10 +98,15 @@ export function buildRichResponseMessage(input: BuildRichResponseMessageInput): 
       message: {
         richResponseMessage: {
           messageType: 1,
-          submessages: fallback === undefined
-            ? [{ messageType: 2, messageText: '' }]
-            : [{ messageType: 2, messageText: fallback.caption }],
+          submessages:
+            input.caption === undefined ? [] : [{ messageType: 2, messageText: input.caption }],
           unifiedResponse: { data },
+          contextInfo: {
+            forwardingScore: 1,
+            isForwarded: true,
+            forwardedAiBotMessageInfo: { botJid: '0@bot' },
+            forwardOrigin: 4,
+          },
         },
       },
     },
@@ -106,9 +114,9 @@ export function buildRichResponseMessage(input: BuildRichResponseMessageInput): 
 }
 
 /**
- * Stock clients suppress AIRich sent as the dispatcher default `type=media`.
- * The public Zapo escape hatches mirror the companion node used by working
- * Baileys/whatsmeow implementations and force the stanza to advertise text.
+ * Send options the live matrix proved necessary: `type: 'text'` (the default
+ * `type: 'media'` makes stock clients suppress the card entirely) plus the
+ * public `biz > interactive > native_flow` node.
  */
 export function htmlPrimitiveSendOptions(): AIRichSendOptions {
   return {
@@ -127,49 +135,4 @@ export function htmlPrimitiveSendOptions(): AIRichSendOptions {
       },
     ],
   }
-}
-
-export type HtmlPrimitiveContent = {
-  readonly messageContextInfo: {
-    readonly deviceListMetadata: Record<string, never>
-    readonly deviceListMetadataVersion: number
-    readonly botMetadata: {
-      readonly messageDisclaimerText: string
-      readonly botResponseId: string
-    }
-  }
-  readonly botForwardedMessage: {
-    readonly message: {
-      readonly richResponseMessage: {
-        readonly messageType: number
-        readonly submessages: { readonly messageType: number; readonly messageText: string }[]
-        readonly unifiedResponse: { readonly data: Uint8Array }
-      }
-    }
-  }
-}
-
-/**
- * Builds a `botForwardedMessage` carrying an HTML view model.
- *
- * Deliberately proof-free: no `verificationMetadata`, no certificate chain, no
- * `botJid`. CREATIVE_MESSAGES.md §7 forbids reusing another party's certificates
- * or posing as an official bot, and the disclaimer text stays empty rather than
- * asserting an identity the bot does not have.
- *
- * `unifiedResponse.data` is protobuf `bytes`, so the JSON is encoded to a
- * `Uint8Array` with no extra base64 layer. Delegates to the shared
- * `buildRichResponseMessage` so HTML and V4 consumers share one wrapper.
- */
-export function htmlPrimitiveMessage(input: HtmlPrimitiveInput): HtmlPrimitiveContent {
-  const html = new TextEncoder().encode(input.html)
-  if (html.byteLength > MAX_HTML_BYTES) {
-    throw new Error(`html payload too large: ${String(html.byteLength)} bytes`)
-  }
-
-  return buildRichResponseMessage({
-    responseId: input.responseId,
-    disclaimer: '',
-    sections: [{ kind: 'html', html: input.html, caption: input.caption }],
-  })
 }

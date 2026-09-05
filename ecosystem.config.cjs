@@ -1,19 +1,9 @@
-/**
- * pm2 process definition. One instance only: zapo enforces a single writer per
- * store, and two connections make Meta evict each other with `stream:error
- * replaced`.
- *
- * Restarts are the reconnection strategy — zapo does not auto-reconnect by
- * design. The backoff and restart cap exist so a logged-out session (which can
- * never succeed without re-pairing) stops instead of hammering the server.
- */
 module.exports = {
   apps: [
     {
       name: 'yzf-botwa',
       script: 'dist/app/index.js',
-      cwd: '/root/zapo-fun-bot',
-      // --env-file is the only way this project loads .env (no dotenv dependency).
+      cwd: __dirname,
       node_args: '--env-file=.env',
       instances: 1,
       exec_mode: 'fork',
@@ -24,8 +14,6 @@ module.exports = {
       kill_timeout: 10000,
       time: false,
       merge_logs: true,
-      out_file: '/root/.pm2/logs/yzf-botwa-out.log',
-      error_file: '/root/.pm2/logs/yzf-botwa-error.log',
     },
   ],
 }

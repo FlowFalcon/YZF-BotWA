@@ -38,3 +38,16 @@ function pickMedia(message: Proto.IMessage): StickerSource | undefined {
   }
   return undefined
 }
+
+/**
+ * Sama seperti `resolveStickerSource` tapi khusus gambar diam: fitur yang
+ * mengirim byte ke layanan gambar tidak bisa memakai video atau sticker
+ * animasi.
+ */
+export function resolveImageSource(
+  message: Proto.IMessage | null | undefined,
+): Proto.IMessage | undefined {
+  const source = resolveStickerSource(message)
+  if (source === undefined) return undefined
+  return source.message.imageMessage ? source.message : undefined
+}

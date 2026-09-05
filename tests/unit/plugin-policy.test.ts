@@ -28,6 +28,20 @@ describe('validatePluginSources', () => {
   it('accepts every plugin shipped in the repository so the runtime build path can publish them', async () => {
     await expect(validatePluginSources(path.join(PROJECT_ROOT, 'plugins'), PROJECT_ROOT)).resolves.toEqual([
       'games/dino.ts',
+      'group/add.ts',
+      'group/demote.ts',
+      'group/gcdesc.ts',
+      'group/gcname.ts',
+      'group/group.ts',
+      'group/groupmenu.ts',
+      'group/hidetag.ts',
+      'group/kick.ts',
+      'group/linkgroup.ts',
+      'group/promote.ts',
+      'group/tagall.ts',
+      'owner/ban.ts',
+      'owner/banchat.ts',
+      'owner/banlist.ts',
       'owner/botmode.ts',
       'owner/delpp.ts',
       'owner/delthumbnail.ts',
@@ -36,9 +50,14 @@ describe('validatePluginSources', () => {
       'owner/setname.ts',
       'owner/setpp.ts',
       'owner/setthumbnail.ts',
+      'owner/unban.ts',
+      'owner/unbanchat.ts',
       'sticker/sticker.ts',
+      'tools/hd.ts',
       'tools/menu.ts',
       'tools/ping.ts',
+      'tools/qrcode.ts',
+      'tools/ssweb.ts',
     ])
   })
 

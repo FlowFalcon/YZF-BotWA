@@ -3,6 +3,10 @@ import { downloadMediaMessage } from 'zapo-js'
 
 import { createApp } from '../lib/app.js'
 import { createClient } from '../lib/client/create-client.js'
+import { createGroupGateway } from '../lib/group/gateway.js'
+import { createUserStore } from '../lib/users/store.js'
+import { fitJpeg } from '../lib/media/fit-jpeg.js'
+import { createMenuMediaService } from '../lib/messages/menu-media.js'
 import { createProtocolStore } from '../lib/client/store.js'
 import { loadCommands } from '../lib/commands/loader.js'
 import { createPluginWatcher, watchPluginFiles } from '../lib/commands/plugin-watcher.js'
@@ -20,6 +24,8 @@ import {
 /** Compiled plugins live at `dist/plugins`, sibling to `dist/lib/`, so `../plugins` is correct. */
 const PLUGINS_DIR = path.join(import.meta.dirname, '..', 'plugins')
 const PLUGIN_SOURCES_DIR = path.resolve('plugins')
+/** Aset branding. Resolved from cwd because `tsc` emits no PNGs into `dist/`. */
+const IMAGES_DIR = path.resolve('lib', 'images')
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env)
@@ -36,12 +42,28 @@ async function main(): Promise<void> {
     }),
   )
   const settings = await createSettingsStore(path.join(path.dirname(config.storePath), 'settings.json'))
+  const users = await createUserStore(path.join(path.dirname(config.storePath), 'users.json'))
+  const group = createGroupGateway(client.group)
+  // JID bot dibaca per pesan: kredensial baru terisi setelah pairing selesai.
+  const botJids = (): readonly string[] => {
+    const credentials = client.auth.getCurrentCredentials()
+    return [credentials?.meJid, credentials?.meLid].filter((jid): jid is string => jid !== undefined)
+  }
   const profile = createProfileBrandingService({
       profile: client.profile,
       download: (message) => downloadMediaMessage(message),
       resize: resizeProfileJpeg,
       thumbnailPath: config.menuThumbnailPath,
     })
+  // Presentation media. The header image must be real CDN media, so this owns
+  // the upload and caches the descriptor until `.setthumbnail` replaces the file.
+  const menuMedia = createMenuMediaService({
+    thumbnailPath: config.menuThumbnailPath,
+    menuImagePath: path.join(IMAGES_DIR, 'mn.png'),
+    replyImagePath: path.join(IMAGES_DIR, 'rp.png'),
+    upload: async (bytes) => client.message.upload(bytes, { type: 'image', mimetype: 'image/jpeg' }),
+    fitJpeg,
+  })
 
   const pluginWatcher = createPluginWatcher({
     fileWatcher: watchPluginFiles(PLUGIN_SOURCES_DIR),
@@ -51,7 +73,7 @@ async function main(): Promise<void> {
     },
     onError: (error) => { logger.warn({ err: error }, 'plugin reload failed') },
   })
-  const app = createApp({ config, logger, store, client, registry, settings, profile, pluginWatcher })
+  const app = createApp({ config, logger, store, client, registry, settings, profile, menuMedia, group, users, botJids, pluginWatcher })
 
   let shuttingDown = false
   const shutdown = (signal: string): void => {

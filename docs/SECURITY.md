@@ -93,7 +93,19 @@ Debug logging yang lebih detail harus opt-in, temporer, dan tetap menyensor secr
 - Access gate berjalan sebelum registry lookup. Penolakan senyap.
 - `.botmode` owner-only selalu dapat melewati jalur kontrol agar mode tidak mengunci owner permanen.
 
-## 8. Error handling
+## 8. Layanan pihak ketiga
+
+Tiga command mengirim input ke penyedia eksternal:
+
+- `qrcode`: teks dikirim ke `quickchart.io` untuk membuat gambar QR;
+- `ssweb`: URL target dikirim ke `thum.io` untuk mengambil screenshot;
+- `hd`: gambar diunggah ke `iloveimg.com` untuk diproses.
+
+Jangan gunakan command tersebut untuk data rahasia. Semua unduhan memiliki timeout,
+batas byte, dan pemeriksaan content type; kegagalan upstream tidak membuka akses file
+lokal atau mengeksekusi respons sebagai kode.
+
+## 9. Error handling
 
 - Error internal dibalas generic; stack trace hanya ke logger.
 - Error fatal startup menyebabkan exit nonzero.
@@ -101,11 +113,11 @@ Debug logging yang lebih detail harus opt-in, temporer, dan tetap menyensor secr
 - Reconnect berhenti pada logout/fatal auth dan setelah max attempts.
 - Retry memiliki backoff dan batas; tidak ada loop tanpa batas.
 
-## 9. Responsible use
+## 10. Responsible use
 
 Bot digunakan untuk eksperimen dan hiburan pada akun/grup yang mengizinkan. Tidak digunakan untuk spam, scraping kontak, impersonation, bypass passkey, atau perilaku yang melanggar aturan platform.
 
-## 10. Incident response minimum
+## 11. Incident response minimum
 
 Jika session diduga bocor:
 

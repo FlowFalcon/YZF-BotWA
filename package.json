@@ -4,6 +4,15 @@
   "description": "Base bot WhatsApp modular berbasis TypeScript dan zapo-js.",
   "license": "MIT",
   "private": true,
+  "author": "FlowFalcon",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlowFalcon/YZF-BotWA.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FlowFalcon/YZF-BotWA/issues"
+  },
+  "homepage": "https://github.com/FlowFalcon/YZF-BotWA#readme",
   "type": "module",
   "engines": {
     "node": ">=20.9.0"

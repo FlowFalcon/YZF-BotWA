@@ -76,8 +76,7 @@ export function createFloodGate(options: FloodOptions): FloodGate {
       // delete sebelum set: sender aktif pindah ke akhir insertion order, sehingga
       // eviction membuang sender yang paling lama tidak dipakai.
       hitsBySender.delete(senderJid)
-      // ponytail: eviction memakai insertion order, bukan LRU eksak berbobot.
-      // Cukup selama maxSenders masih ribuan; ganti bila perlu ratusan ribu sender.
+      // Insertion order cukup untuk batas sender saat ini.
       while (hitsBySender.size >= maxSenders) {
         const oldestSender = hitsBySender.keys().next()
         if (oldestSender.done === true) {

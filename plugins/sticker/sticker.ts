@@ -3,6 +3,7 @@ import type { Readable } from 'node:stream'
 import type { Command, CommandContext } from '../../lib/commands/command.js'
 import type { EncodeStickerOptions } from '../../lib/media/ffmpeg.js'
 import { encodeSticker } from '../../lib/media/ffmpeg.js'
+import { collectStream } from '../../lib/media/collect.js'
 import { resolveStickerSource } from '../../lib/media/source.js'
 import type { IncomingMessageContent } from '../../lib/media/types.js'
 
@@ -24,31 +25,6 @@ export interface StickerDeps {
 
 const USAGE = 'Kirim foto/video dengan caption .sticker, atau reply media lalu ketik .sticker.'
 
-/**
- * Collects a stream with a hard byte ceiling.
- *
- * Checked while reading rather than after: a malicious or accidental 100 MB
- * video must not be buffered in full before being rejected.
- */
-async function collect(stream: Readable, maxBytes: number): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for await (const chunk of stream) {
-    const bytes = chunk as Uint8Array
-    size += bytes.byteLength
-    if (size > maxBytes) throw new RangeError('media exceeds the sticker size ceiling')
-    chunks.push(bytes)
-  }
-
-  const out = new Uint8Array(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    out.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return out
-}
-
 export function createStickerCommand(deps: StickerDeps): Command {
   const maxBytes = deps.maxBytes ?? DEFAULT_MAX_BYTES
 
@@ -69,7 +45,7 @@ export function createStickerCommand(deps: StickerDeps): Command {
       await context.react('⏳')
 
       try {
-        const bytes = await collect(await deps.download(source.message), maxBytes)
+        const bytes = await collectStream(await deps.download(source.message), maxBytes)
         const media = await deps.encode(bytes, {
           animated: source.animated,
           metadata: { pack: context.pushName ?? 'Sticker', author: deps.packAuthor },

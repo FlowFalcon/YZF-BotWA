@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CommandContext } from '../../../lib/commands/command.js'
-import { createDinoCommand } from '../../../plugins/games/dino.js'
+import dinoCommand from '../../../plugins/games/dino.js'
 import type { HtmlPrimitiveContent, AIRichSendOptions } from '../../../lib/messages/ai-rich.js'
 
 function harness(parts: Partial<CommandContext> = {}) {
@@ -36,20 +36,39 @@ function harness(parts: Partial<CommandContext> = {}) {
 }
 
 describe('dino command', () => {
-  it('sends the AIRich HTML Dino without the old emoji renderer', async () => {
+  it('sends the lightweight framed Dino Runner with clean caption', async () => {
     const h = harness()
 
-    await createDinoCommand().run(h.context)
+    await dinoCommand.run(h.context)
 
     expect(h.raw).toHaveLength(1)
     expect(h.nativeCards()).toBe(0)
-    expect(h.raw[0]?.botForwardedMessage.message.richResponseMessage.submessages[0]?.messageText).toBe('Dino Run')
+    const richMessage = h.raw[0]?.botForwardedMessage.message.richResponseMessage
+    expect(richMessage?.submessages[0]?.messageText).toBe('🦖 Dino Runner')
+
+    // Verify contextInfo structure
+    expect(richMessage?.contextInfo).toEqual({
+      forwardingScore: 1,
+      isForwarded: true,
+      forwardedAiBotMessageInfo: { botJid: '0@bot' },
+      forwardOrigin: 4,
+    })
+
+    // Verify HTML content
+    const dataBytes = richMessage?.unifiedResponse.data
+    expect(dataBytes).toBeDefined()
+    const decodedJson = JSON.parse(new TextDecoder().decode(dataBytes)) as {
+      sections: [{ view_model: { primitive: { payload: string } } }]
+    }
+    const htmlPayload = decodedJson.sections[0]?.view_model.primitive.payload ?? ''
+    expect(htmlPayload).toContain('interstitial-wrapper')
+    expect(htmlPayload).toContain('offline-resources')
   })
 
   it('uses the business node and text stanza required by stock clients', async () => {
     const h = harness()
 
-    await createDinoCommand().run(h.context)
+    await dinoCommand.run(h.context)
 
     expect(h.options[0]).toEqual({
       additionalAttributes: { type: 'text' },
@@ -68,9 +87,9 @@ describe('dino command', () => {
   it('remains available in private and group chats subject to the shared access gate', async () => {
     const group = harness({ isGroup: true })
 
-    await createDinoCommand().run(group.context)
+    await dinoCommand.run(group.context)
 
     expect(group.raw).toHaveLength(1)
-    expect(createDinoCommand().permission ?? 'everyone').toBe('everyone')
+    expect(dinoCommand.permission ?? 'everyone').toBe('everyone')
   })
 })

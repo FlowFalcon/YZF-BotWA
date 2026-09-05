@@ -53,9 +53,7 @@ export function createCooldownGate(options: CooldownOptions): CooldownGate {
       // prune dulu supaya entry kedaluwarsa tidak ikut menghitung batas ukuran.
       prune(nowMs)
       if (cooldownMs > 0) {
-        // ponytail: eviction memakai insertion order (approx paling lama tercatat), bukan
-        // heap by expiry. Cukup untuk ribuan entry; ganti dengan priority queue bila
-        // maxEntries perlu naik ke ratusan ribu.
+        // Insertion order cukup untuk batas entry saat ini; tidak perlu heap expiry.
         while (expiryByKey.size >= maxEntries) {
           const oldest = expiryByKey.keys().next()
           if (oldest.done === true) {

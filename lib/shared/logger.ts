@@ -7,10 +7,7 @@ import { pino, type DestinationStream, type Logger } from 'pino'
  * `message` and `code` are censored on serialized errors too, so diagnose errors with
  * `err.type`/`err.stack` plus the structured fields from `commandLogFields`.
  *
- * ponytail: `err.stack` still reproduces the error message verbatim, so censoring
- * `message` narrows exposure rather than eliminating it. Never put a secret in an Error
- * message. Add a stack-stripping serializer if a caller ever needs to log an error whose
- * message is genuinely sensitive.
+ * Error stacks may repeat the message; callers must not put secrets in Error messages.
  */
 const SECRET_FIELDS = [
   'credentials',

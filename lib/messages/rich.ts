@@ -1,77 +1,17 @@
 /**
- * Reusable presentation builders. Native-flow uses raw `Proto.IMessage`
- * shapes because zapo has no typed convenience builder for it yet. AIRich HTML
- * remains isolated in `ai-rich.ts`; neither path borrows verification metadata
- * or claims a Meta AI identity.
+ * Shared native-flow and compact-card builders. Interactive images use uploaded
+ * header media; compact cards use inline thumbnails without buttons.
  */
 
+import type { MenuHeader } from './menu-media.js'
+
+/** Zapo's inline-thumbnail ceiling; above it the field is dropped without warning. */
+const INLINE_THUMBNAIL_MAX_BYTES = 64 * 1024
 /**
- * `ContextInfo.ExternalAdReplyInfo` subset this project uses. `mediaType: 1`
- * is `MediaType.IMAGE` in the installed proto; the bytes travel inline, so no
- * credential-bearing direct path is ever attached.
+ * Zero-width padding. The client drops the card when `matchedText` is missing
+ * from the body, so the URL stays in the text and is pushed off-screen instead.
  */
-export interface ExternalAdReplyCard {
-  readonly title: string
-  readonly body?: string
-  readonly sourceUrl?: string
-  /** Raw image bytes; never use a credential-bearing direct path. */
-  readonly thumbnail?: Uint8Array
-  readonly renderLargerThumbnail?: boolean
-  readonly showAdAttribution?: boolean
-}
-
-interface ExternalAdReplyProto {
-  readonly title: string
-  readonly body?: string
-  readonly sourceUrl?: string
-  readonly thumbnail?: Uint8Array
-  readonly mediaType: 1
-  readonly renderLargerThumbnail: boolean
-  readonly showAdAttribution: boolean
-}
-
-function externalAdReplyProto(card: ExternalAdReplyCard): ExternalAdReplyProto {
-  return {
-    title: card.title,
-    ...(card.body === undefined ? {} : { body: card.body }),
-    ...(card.sourceUrl === undefined ? {} : { sourceUrl: card.sourceUrl }),
-    ...(card.thumbnail === undefined ? {} : { thumbnail: card.thumbnail }),
-    mediaType: 1,
-    renderLargerThumbnail: card.renderLargerThumbnail ?? false,
-    showAdAttribution: card.showAdAttribution ?? false,
-  }
-}
-
-export interface ExternalAdReplyTextInput extends ExternalAdReplyCard {
-  readonly text: string
-}
-
-/**
- * Compact text reply carrying a link-preview-style card. `contextInfo.raw` is
- * the public zapo escape hatch for proto fields its typed builder omits.
- */
-export function externalAdReplyText(input: ExternalAdReplyTextInput): RichTextContent {
-  return {
-    type: 'text',
-    text: input.text,
-    contextInfo: { raw: { externalAdReply: externalAdReplyProto(input) } },
-  }
-}
-
-/**
- * Structural mirror of zapo's `WaSendTextMessage` for the card path, declared
- * here so `lib/commands/command.ts` stays free of a zapo-js import. Assignability
- * to the real send contract is enforced where `lib/messages/context.ts` passes
- * it to `message.send`.
- */
-export interface RichTextContent {
-  readonly type: 'text'
-  readonly text: string
-  readonly contextInfo: { readonly raw: { readonly externalAdReply: ExternalAdReplyProto } }
-}
-
-/** Everything `CommandContext.replyContent` accepts. */
-export type RichReplyContent = RichInteractiveContent | RichTextContent
+const HIDDEN_PADDING = '\u200B'.repeat(400)
 
 export interface RichButton {
   readonly text: string
@@ -95,15 +35,15 @@ interface NativeFlowButton {
 }
 
 /**
- * Structural result type. Declared explicitly rather than inferred so the
- * router and tests can read the payload without casts; it stays assignable to
+ * Structural result type. Declared explicitly rather than inferred so the router
+ * and tests can read the payload without casts; it stays assignable to
  * `Proto.IMessage` because every proto field it names is optional there.
  */
 export interface RichInteractiveContent {
   readonly interactiveMessage: {
+    readonly header?: MenuHeader
     readonly body: { readonly text: string }
     readonly footer?: { readonly text: string }
-    readonly contextInfo?: { readonly externalAdReply: ExternalAdReplyProto }
     readonly nativeFlowMessage: {
       readonly messageVersion: 1
       readonly buttons: NativeFlowButton[]
@@ -111,45 +51,66 @@ export interface RichInteractiveContent {
   }
 }
 
-const buildContent = (
-  text: string,
-  footer: string | undefined,
-  buttons: NativeFlowButton[],
-  card?: ExternalAdReplyCard,
-): RichInteractiveContent => ({
+/** Small link card: raw `extendedTextMessage`, inline thumbnail, no upload. */
+export interface RichTextContent {
+  readonly extendedTextMessage: {
+    readonly text: string
+    readonly matchedText: string
+    readonly title: string
+    readonly description?: string
+    /** `PreviewType.NONE`; the thumbnail is what makes the card, not this flag. */
+    readonly previewType: 0
+    readonly jpegThumbnail: Uint8Array
+    readonly thumbnailWidth: number
+    readonly thumbnailHeight: number
+  }
+}
+
+/** Everything `CommandContext.replyContent` accepts. */
+export type RichReplyContent = RichInteractiveContent | RichTextContent
+
+interface InteractiveInput {
+  readonly text: string
+  readonly footer?: string
+  readonly header?: MenuHeader
+  readonly buttons: NativeFlowButton[]
+}
+
+const buildInteractive = (input: InteractiveInput): RichInteractiveContent => ({
   interactiveMessage: {
-    body: { text },
-    ...(footer === undefined ? {} : { footer: { text: footer } }),
-    ...(card === undefined ? {} : { contextInfo: { externalAdReply: externalAdReplyProto(card) } }),
-    nativeFlowMessage: { messageVersion: 1, buttons },
+    ...(input.header === undefined ? {} : { header: input.header }),
+    body: { text: input.text },
+    ...(input.footer === undefined ? {} : { footer: { text: input.footer } }),
+    nativeFlowMessage: { messageVersion: 1, buttons: input.buttons },
   },
 })
 
 export function richButtons(input: {
   readonly text: string
   readonly footer?: string
-  /** Thumbnail/branding card; the native header is not used (see DECISIONS D-019). */
-  readonly externalAdReply?: ExternalAdReplyCard
+  /** Uploaded media header; the only path that shows an image next to buttons. */
+  readonly header?: MenuHeader
   readonly buttons: readonly RichButton[]
 }): RichInteractiveContent {
   // A card with no buttons renders as dead text on the phone; fail loudly instead.
   if (input.buttons.length === 0) {
     throw new Error('richButtons requires at least one button')
   }
-  return buildContent(
-    input.text,
-    input.footer,
-    input.buttons.map((button) => ({
+  return buildInteractive({
+    text: input.text,
+    ...(input.footer === undefined ? {} : { footer: input.footer }),
+    ...(input.header === undefined ? {} : { header: input.header }),
+    buttons: input.buttons.map((button) => ({
       name: 'quick_reply',
       buttonParamsJson: JSON.stringify({ display_text: button.text, id: button.id }),
     })),
-    input.externalAdReply,
-  )
+  })
 }
 
 export function richList(input: {
   readonly text: string
   readonly footer?: string
+  readonly header?: MenuHeader
   readonly title: string
   readonly buttonText: string
   readonly sections: readonly RichListSection[]
@@ -159,23 +120,59 @@ export function richList(input: {
       throw new Error(`richList section "${section.title}" requires at least one row`)
     }
   }
-  return buildContent(input.text, input.footer, [
-    {
-      name: 'single_select',
-      buttonParamsJson: JSON.stringify({
-        title: input.title,
-        button_text: input.buttonText,
-        sections: input.sections.map((section) => ({
-          title: section.title,
-          rows: section.rows.map((row) => ({
-            title: row.title,
-            description: row.description ?? '',
-            id: row.id,
+  return buildInteractive({
+    text: input.text,
+    ...(input.footer === undefined ? {} : { footer: input.footer }),
+    ...(input.header === undefined ? {} : { header: input.header }),
+    buttons: [
+      {
+        name: 'single_select',
+        buttonParamsJson: JSON.stringify({
+          title: input.title,
+          button_text: input.buttonText,
+          sections: input.sections.map((section) => ({
+            title: section.title,
+            rows: section.rows.map((row) => ({
+              title: row.title,
+              description: row.description ?? '',
+              id: row.id,
+            })),
           })),
-        })),
-      }),
+        }),
+      },
+    ],
+  })
+}
+
+/**
+ * Compact reply carrying a small link card. The HQ upload fields
+ * (`thumbnailDirectPath`, `mediaKey`) are omitted on purpose: they are what
+ * force the tall card on the typed `linkPreview` path.
+ */
+export function compactCardText(input: {
+  readonly text: string
+  readonly url: string
+  readonly title: string
+  readonly description?: string
+  readonly thumbnail: { readonly bytes: Uint8Array; readonly width: number; readonly height: number }
+}): RichTextContent {
+  if (input.thumbnail.bytes.byteLength > INLINE_THUMBNAIL_MAX_BYTES) {
+    throw new Error(
+      `Inline thumbnail ${String(input.thumbnail.bytes.byteLength)} bytes exceeds the 64 KiB cap and would be dropped silently.`,
+    )
+  }
+  return {
+    extendedTextMessage: {
+      text: `${input.url}${HIDDEN_PADDING}\n\n${input.text}`,
+      matchedText: input.url,
+      title: input.title,
+      ...(input.description === undefined ? {} : { description: input.description }),
+      previewType: 0,
+      jpegThumbnail: input.thumbnail.bytes,
+      thumbnailWidth: input.thumbnail.width,
+      thumbnailHeight: input.thumbnail.height,
     },
-  ])
+  }
 }
 
 /**
@@ -197,9 +194,9 @@ export interface RichReplySource {
 }
 
 /**
- * Returns the command text a tap produced, so a button press can enter the
- * exact same router path as a typed message — no parallel dispatch to keep in
- * sync, and every access gate still applies.
+ * Returns the command text a tap produced, so a button press can enter the exact
+ * same router path as a typed message — no parallel dispatch to keep in sync,
+ * and every access gate still applies.
  */
 export function readRichReplyId(message: RichReplySource | undefined): string | undefined {
   const flow = message?.interactiveResponseMessage?.nativeFlowResponseMessage

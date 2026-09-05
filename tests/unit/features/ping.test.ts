@@ -1,16 +1,24 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import type { CommandContext } from '../../../lib/commands/command.js'
 import type { RichReplyContent } from '../../../lib/messages/rich.js'
+import type { MenuMediaService } from '../../../lib/messages/menu-media.js'
 import ping from '../../../plugins/tools/ping.js'
+import { fakeContext } from '../../fixtures/context.js'
+
+const THUMBNAIL = { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0x21]), width: 240, height: 201 }
+
+function mediaService(thumbnail: typeof THUMBNAIL | undefined): MenuMediaService {
+  return {
+    header: () => Promise.resolve(undefined),
+    compact: () => Promise.resolve(thumbnail),
+  }
+}
 
 function makeContext(
   receivedAtMs: number,
   nowMs: number,
-  menuThumbnailPath = path.join(tmpdir(), 'yzf-absent-thumbnail.jpg'),
+  menuMedia?: MenuMediaService,
 ): {
   ctx: CommandContext
   replies: string[]
@@ -18,18 +26,9 @@ function makeContext(
 } {
   const replies: string[] = []
   const cards: RichReplyContent[] = []
-  const ctx: CommandContext = {
-    chatJid: 'chat@s.whatsapp.net',
-    senderJid: 'sender@s.whatsapp.net',
-    isGroup: false,
-    isOwner: false,
-    prefix: '.',
-    commandName: 'ping',
-    args: [],
-    text: '',
+  const ctx = fakeContext({
     receivedAtMs,
     now: () => nowMs,
-    random: () => 0,
     reply: (content) => {
       replies.push(content)
       return Promise.resolve()
@@ -38,13 +37,8 @@ function makeContext(
       cards.push(content)
       return Promise.resolve()
     },
-    replyMedia: async () => {},
-    replyAIRich: async () => {},
-    settings: { getMode: () => 'owner-only' },
-    commands: { list: () => [] },
-    menuThumbnailPath,
-    react: async () => {},
-  }
+    ...(menuMedia === undefined ? {} : { menuMedia }),
+  })
   return { ctx, replies, cards }
 }
 
@@ -80,38 +74,29 @@ describe('ping command', () => {
     expect(replies).toEqual(['Pong! Bot aktif. Waktu proses: 0 ms.'])
   })
 
-  it('attaches the branding card when a thumbnail is installed', async () => {
-    const directory = await mkdtemp(path.join(tmpdir(), 'yzf-ping-'))
-    const thumbnailPath = path.join(directory, 'menu-thumbnail.jpg')
-    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x21])
-    await writeFile(thumbnailPath, bytes)
+  it('sends a small inline card when a thumbnail is installed', async () => {
+    const { ctx, replies, cards } = makeContext(1_000, 1_005, mediaService(THUMBNAIL))
 
-    try {
-      const { ctx, replies, cards } = makeContext(1_000, 1_005, thumbnailPath)
+    await ping.run(ctx)
 
-      await ping.run(ctx)
-
-      expect(replies).toEqual([])
-      expect(cards).toEqual([
-        {
-          type: 'text',
-          text: 'Pong! Bot aktif. Waktu proses: 5 ms.',
-          contextInfo: {
-            raw: {
-              externalAdReply: {
-                title: 'YZF-BotWA',
-                body: 'Bot aktif',
-                thumbnail: bytes,
-                mediaType: 1,
-                renderLargerThumbnail: false,
-                showAdAttribution: false,
-              },
-            },
-          },
-        },
-      ])
-    } finally {
-      await rm(directory, { recursive: true, force: true })
+    expect(replies).toEqual([])
+    const card = cards[0]
+    expect(card).toBeDefined()
+    if (card !== undefined && 'extendedTextMessage' in card) {
+      expect(card.extendedTextMessage.text).toContain('Pong! Bot aktif. Waktu proses: 5 ms.')
+      expect(card.extendedTextMessage.jpegThumbnail).toEqual(THUMBNAIL.bytes)
+      expect(card.extendedTextMessage.title).toBe('YZF-BotWA')
+      // The HQ upload fields are what force the tall card.
+      expect(card.extendedTextMessage).not.toHaveProperty('thumbnailDirectPath')
     }
+  })
+
+  it('falls back to plain text when no thumbnail is installed', async () => {
+    const { ctx, replies, cards } = makeContext(1_000, 1_005, mediaService(undefined))
+
+    await ping.run(ctx)
+
+    expect(cards).toEqual([])
+    expect(replies).toEqual(['Pong! Bot aktif. Waktu proses: 5 ms.'])
   })
 })
