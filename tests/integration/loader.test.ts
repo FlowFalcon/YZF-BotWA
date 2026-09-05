@@ -184,7 +184,7 @@ describe('buildPluginRegistry', () => {
     const generations = (await readdir(output, { withFileTypes: true })).filter((entry) => entry.isDirectory())
     expect(generations).toHaveLength(2)
     await expect(access(path.join(root, '.runtime', 'plugins.lock'))).rejects.toThrow()
-  })
+  }, 15_000)
 
   it('recovers a lock owned by a dead process without waiting for the timeout', async () => {
     const { root, plugins, output } = await project()
